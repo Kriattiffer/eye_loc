@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*- 
 
-from iViewXAPI import  *            			#iViewX library
+from iViewXAPI import  *  #iViewX library
 from ctypes import *
 import time, sys
 from pylsl import StreamInlet, resolve_stream
@@ -37,7 +37,11 @@ def create_stream(stream_name_markers = 'CycleStart', recursion_meter = 0, max_r
 
 class Eyetracker():
     """docstring for Eyetracker"""
-    def __init__(self, debug = False):
+    def __init__(self, namespace, debug = False):
+        namespace.BEGIN_EXP = [False]
+        self.BEGIN_EXP =namespace.BEGIN_EXP
+
+
         self.im  = create_stream()
         self.host_ip = '192.168.0.2'
         self.server_ip = '192.168.0.3'
@@ -49,8 +53,8 @@ class Eyetracker():
     def  calibrate(self):
         '''configure and start calibration'''
 
-        numberofPoints = 9 # can be 2, 5 and 9
-        displayDevice = 1 # 0 - primary, 1- secondary
+        numberofPoints = 2 # can be 2, 5 and 9
+        displayDevice = 0 # 0 - primary, 1- secondary (?)
         pointBrightness = 250
         backgroundBrightnress = 50
         targetFile = b""
@@ -75,7 +79,7 @@ class Eyetracker():
         print "iV_Validate " + str(self.res)
         self.res = iViewXAPI.iV_ShowAccuracyMonitor ( )
         self.res = iViewXAPI.iV_ShowEyeImageMonitor ( )
-        raw_input('press any key to continue')
+        # raw_input('press any key to continue')
 
     def connect_to_iView(self):
         self.res = iViewXAPI.iV_Connect(c_char_p(self.host_ip), c_int(4444), c_char_p(self.server_ip), c_int(5555))
@@ -106,6 +110,7 @@ class Eyetracker():
         self.connect_to_iView()
         self.calibrate()
         self.validate()
+        self.BEGIN_EXP = [True]
         self.mainloop()
 
 
@@ -127,8 +132,8 @@ class Eyetracker():
 
 
 if __name__ == '__main__':
-    
-    RED = Eyetracker(debug = True)
+            
+    RED = Eyetracker(namespace = type('test', (object,), {})(), debug = True)
     RED.main()
 
 

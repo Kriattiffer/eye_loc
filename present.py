@@ -4,7 +4,6 @@ import os, sys, time, socket, random, datetime, socket, ast, math
 from psychopy import visual, core, event, monitors, logging
 from pylsl import StreamInfo, StreamOutlet
 import numpy as np
-from psychopy.tools.monitorunittools import posToPix
 
 mymon = monitors.Monitor('Eizo', distance=48, width = 52.5)
 # mymon = monitors.Monitor('zenbook', distance=18, width = 29.5)
@@ -14,15 +13,14 @@ mymon.setSizePix([1920, 1080])
 
 class ENVIRONMENT():
 	""" class for visual stimulation during the experiment """
-	def __init__(self, DEMO = False, config = './circles.bcicfg'):
+	def __init__(self, namespace, DEMO = False, config = './circles.bcicfg'):
 
 		self.background = '#868686'
 
 		self.Fullscreen = False
 		self.window_size = (1920, 1080)
-		self.LEARN = True
 		self.number_of_inputs = 12
-	
+		self.BEGIN_EXP = namespace.BEGIN_EXP = [False]
 
 		try:
 			self.config =  ast.literal_eval(open(config).read())
@@ -31,8 +29,6 @@ class ENVIRONMENT():
 			print e
 			self.exit_()
 
-		self.stimcolor = ['white', 'white', 'white', 'white'] #steadystate
-		self. time_4_one_letter = 6 #steadystate
 
 		if DEMO == True:
 			self.LSL, self.conn = self.fake_lsl_and_conn()
@@ -40,11 +36,6 @@ class ENVIRONMENT():
 		elif DEMO == False:
 			self.LSL = create_lsl_outlet() # create outlet for sync with NIC
 			core.wait(1)		
-			sck = socket.socket() # cant make Pipe() work
-			sck.bind(('localhost', 22828))
-			sck.listen(1)
-			self.conn, addr = sck.accept()	
-			print 'Classifier socket connected'
 		
 	def fake_lsl_and_conn(self):
 		fakeLSL = create_lsl_outlet() # create outlet for sync with NIC - dosen't need connection
@@ -126,34 +117,31 @@ class ENVIRONMENT():
 			
 		self.stimlist = [non_active_stims, active_stims]
 
-		self.p300_markers_on =  [[11], [22],[33],[44], [55], [66]]
 
 	def sendTrigger(self, stim):
 		'''This function is called with callOnFlip which
 		 "call the function just after the flip, before psychopy does a bit of housecleaning. ", 
 		 according to some dude on the internets'''
 		self.LSL.push_sample([self.stimlist[1][stim].name], pushthrough = True) # push marker immdiately after first bit of the sequence
+	
+	def wait_for_event(self, key, wait = True):
+		if wait == True or namespace.BEGIN_EXP == [False]:
+			while key not in event.getKeys(): # wait for S key to start
+				pass
 
-	def run_P300_exp(self, stim_duration_FRAMES = 3, ISI_FRAMES = 9, repetitions =  10, waitforS=True, stimuli_number = 6):
-		'P300 expreiment. Stimuli duration and interstimuli interval should be supplied as number of frames.'
+	def run_exp(self, stim_duration_FRAMES = 3, ISI_FRAMES = 9, repetitions =  10, waitforS=True, stimuli_number = 6):
+		'Eye tracking expreiment. Stimuli duration and interstimuli interval should be supplied as number of frames.'
 		cycle_ms = (stim_duration_FRAMES + ISI_FRAMES)*1000.0/self.refresh_rate
-		print 'P300 cycle is %.2f ms' % cycle_ms
+		print 'Stimuli cycle is %.2f ms' % cycle_ms
 		seq = [1]*stim_duration_FRAMES + [0]*ISI_FRAMES
 
+		aims = [int(a) -1 for a in np.genfromtxt('aims_play.txt')]
 
-		if self.LEARN == True:
-			aims = [int(a)-1 for a in np.genfromtxt('aims_learn.txt')]
-			print aims
-		elif self.LEARN == False:
-			aims = [int(a) -1 for a in np.genfromtxt('aims_play.txt')]
-			print aims
+		self.wait_for_event(key = 's', wait = waitforS)
 
-		if waitforS == True:
-			while 's' not in event.getKeys(): # wait for S key to start
-				pass
 		for letter, aim in enumerate(aims):
 			self.LSL.push_sample([777]) # input of new letter
-			superseq = generate_p300_superseq(numbers = self.stimuli_indices, repetitions = repetitions)
+			superseq = generate_superseq(numbers = self.stimuli_indices, repetitions = repetitions)
 
 			# aim_stimuli
 			self.stimlist[1][aim].autoDraw = True # indicate aim stimuli
@@ -189,29 +177,8 @@ class ENVIRONMENT():
 			core.wait(1.5) # wait one second after last blink
 			self.LSL.push_sample([888]) # end of the trial
 			core.wait(0.5)
-			if self.LEARN == False:
-				while 'answer' not in self.conn.recv(1024):
-					pass	
-				print 'next letter'
+			print 'next letter'
 		
-		if self.LEARN == True:
-			core.wait(1)
-			self.LSL.push_sample([888999]) # end of learningsession
-			# start online session
-			print stim_duration_FRAMES
-			self.LEARN = False
-
-			# wait while classifier finishes learning
-			while self.conn.recv(2048) != 'startonlinesession':
-				pass
-			print  'learning session finished, press s to continue'
-			while 's' not in event.getKeys(): # wait for S key to start
-				pass
-			print 'Online session started'
-			self.LSL.push_sample([999888])
-			self.run_P300_exp(stim_duration_FRAMES = stim_duration_FRAMES,
-							  ISI_FRAMES = ISI_FRAMES, repetitions =  repetitions,
-							  waitforS= waitforS)
 		else:
 			self.exit_()
 
@@ -226,7 +193,7 @@ class ENVIRONMENT():
 
 		sys.exit()
 
-def generate_p300_superseq(numbers =[0,1,2,3], repetitions = 10):
+def generate_superseq(numbers =[0,1,2,3], repetitions = 10):
 	''' receives IDs of stimuli, and number of repetitions, returns stimuli sequence without repeats'''
 	seq = numbers*repetitions
 	random.shuffle(seq) # generate random list
@@ -253,9 +220,9 @@ if __name__ == '__main__':
 	print 'done imports'
 	os.chdir(os.path.dirname(__file__)) 	# VLC PATH BUG ==> submit?
 
-	ENV = ENVIRONMENT(DEMO = True, config = './circles.bcicfg')
+	ENV = ENVIRONMENT(namespace = type('test', (object,), {})(), DEMO = True, config = './circles.bcicfg')
 	# ENV.Fullscreen = True
-	# ENV.photocell = True
+	# ENV.photocell = Truec
 	ENV.refresh_rate = 60
 	ENV.build_gui(monitor = mymon, screen = 0)
-	ENV.run_P300_exp(waitforS = False)
+	ENV.run_exp(waitforS = True)
