@@ -1,0 +1,5 @@
+{
+'stimuli_dir': '.\\rescources\\stimuli\\colored_circles',
+'positions': [[0, 14],[14, 8],[0, -14],[-14, 8],[-14, -8],[14, -8],[0, 4],[4, 2],[0, -4],[-4, 2],[-4, -2],[4, -2]],
+'names': ['Vivid Yellow','Strong Purple','Vivid Orange','Very Light Blue','Vivid Red','Grayish Yellow','Medium Gray','Vivid Green','Strong urplish Pink','Strong Blue','Strong Yellowish Pink','Strong Violet','Vivid Orange Yellow','Strong Purplish Red','Vivid Greenish ellow','Strong Reddish Brown','Vivid Yellowish Green','Deep Yellowish Brown','Vivid Reddish Orange','Dark Olive Green']
+}
