@@ -84,7 +84,7 @@ class ENVIRONMENT():
 			if name in self.stimuli_indices:
 				stim = visual.ImageStim(self.win, image=pic,
 										 name = name,
-										size = 4, units = 'deg')
+										size = 190, units = 'pix')
 				if 'non_active' not in pic:
 					active_stims.append(stim)
 				else:
@@ -125,7 +125,7 @@ class ENVIRONMENT():
 		self.LSL.push_sample([self.stimlist[1][stim].name], pushthrough = True) # push marker immdiately after first bit of the sequence
 	
 	def wait_for_event(self, key, wait = True):
-		if wait == True or namespace.BEGIN_EXP == [False]:
+		if wait == True or self.BEGIN_EXP == [False]:
 			while key not in event.getKeys(): # wait for S key to start
 				pass
 
@@ -220,9 +220,10 @@ if __name__ == '__main__':
 	print 'done imports'
 	os.chdir(os.path.dirname(__file__)) 	# VLC PATH BUG ==> submit?
 
-	ENV = ENVIRONMENT(namespace = type('test', (object,), {})(), DEMO = True, config = './circles.bcicfg')
+	ENV = ENVIRONMENT(namespace = type('test', (object,), {})(), DEMO = True, 
+						config = './letters_table_5x5.bcicfg')
 	# ENV.Fullscreen = True
-	# ENV.photocell = Truec
+	# ENV.photocell = True
 	ENV.refresh_rate = 60
-	ENV.build_gui(monitor = mymon, screen = 0)
+	ENV.build_gui(monitor = mymon, screen = 0, stimuli_number = 25)
 	ENV.run_exp(waitforS = True)
