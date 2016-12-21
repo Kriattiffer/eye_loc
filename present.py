@@ -1,19 +1,24 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*- 
-
-import os, sys, time, socket, random, datetime, socket, ast, math
-from psychopy import visual, core, event, monitors, logging
+# ----------------------------------------------------------------------------
+# Name:       present.py
+# Purpose:    Eye tracking experiment
+# Author: Rafael Grigoryan, kriattiffer at gmail.com
+# Date: December 20, 2016
+# ----------------------------------------------------------------------------
+import os, sys, random, ast, math
+from psychopy import visual, core, event, monitors
 from pylsl import StreamInfo, StreamOutlet
 import numpy as np
 
 mymon = monitors.Monitor('Eizo', distance=48, width = 52.5)
-# mymon = monitors.Monitor('zenbook', distance=18, width = 29.5)
 mymon.setSizePix([1920, 1080])		
 # mymon.setSizePix([1024, 768])		
 
 
 class ENVIRONMENT():
 	""" class for visual stimulation during the experiment """
-	def __init__(self, namespace, DEMO = False, config = './circles.bcicfg'):
+	def __init__(self, namespace, DEMO = False, config = './letters_table_5x5.bcicfg'):
 
 		self.background = '#868686'
 
@@ -84,7 +89,7 @@ class ENVIRONMENT():
 			if name in self.stimuli_indices:
 				stim = visual.ImageStim(self.win, image=pic,
 										 name = name,
-										size = 190, units = 'pix')
+										size = self.config['size'], units = 'pix')
 				if 'non_active' not in pic:
 					active_stims.append(stim)
 				else:
@@ -93,18 +98,6 @@ class ENVIRONMENT():
 				pass
 		active_stims  = active_stims
 		non_active_stims  = non_active_stims
-
-		# Create fixation cross
-		self.fixation = visual.ShapeStim(self.win,  							
-								vertices=((0, -1*fix_size), (0, fix_size), (0,0), 
-										  (-1*fix_size,0), (fix_size, 0)),
-								units = 'deg',
-								lineWidth=5,
-								closeShape=False,
-								lineColor='white',
-								autoDraw=True
-								)
-	
 
 		# position circles over board. units are taken from the create_circle function
 		poslist = self.config['positions']
@@ -226,4 +219,4 @@ if __name__ == '__main__':
 	# ENV.photocell = True
 	ENV.refresh_rate = 60
 	ENV.build_gui(monitor = mymon, screen = 0, stimuli_number = 25)
-	ENV.run_exp(waitforS = True)
+	ENV.run_exp(stim_duration_FRAMES = 2, ISI_FRAMES = 2, waitforS = True)
