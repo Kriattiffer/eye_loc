@@ -6,6 +6,7 @@
 # Author: Rafael Grigoryan, kriattiffer at gmail.com
 # Date: December 20, 2016
 # ----------------------------------------------------------------------------
+
 import os, sys, random, ast, math
 from psychopy import visual, core, event, monitors
 from pylsl import StreamInfo, StreamOutlet
@@ -23,8 +24,10 @@ class ENVIRONMENT():
 		self.background = '#868686'
 
 		self.Fullscreen = False
+		self.plot_intervals = False
 		self.window_size = (1920, 1080)
 		self.number_of_inputs = 12
+		self.shrink_matrix = 1
 		self.BEGIN_EXP = namespace.BEGIN_EXP = [False]
 
 		try:
@@ -89,7 +92,7 @@ class ENVIRONMENT():
 			if name in self.stimuli_indices:
 				stim = visual.ImageStim(self.win, image=pic,
 										 name = name,
-										size = self.config['size'], units = 'pix')
+										size = self.config['size']/self.shrink_matrix, units = 'pix')
 				if 'non_active' not in pic:
 					active_stims.append(stim)
 				else:
@@ -102,10 +105,11 @@ class ENVIRONMENT():
 		# position circles over board. units are taken from the create_circle function
 		poslist = self.config['positions']
 		for a in active_stims:
-			a.pos = poslist[int(a.name)]
+			a.pos = [b/self.shrink_matrix for b in poslist[int(a.name)]]
 
 		for a in non_active_stims:
-			a.pos = poslist[int(a.name)]
+			a.pos = [b/self.shrink_matrix for b in poslist[int(a.name)]]
+
 			a.autoDraw = True
 			
 		self.stimlist = [non_active_stims, active_stims]
@@ -176,13 +180,15 @@ class ENVIRONMENT():
 			self.exit_()
 
 	def exit_(self):
-		''' exit and kill dependent processes'''
+		''' exit and kill dependent processes'''		
 		self.LSL.push_sample([999])
 		core.wait(1)
+		self.win.close()
 
-		# from matplotlib import pyplot as plt
-		# plt.plot(self.win.frameIntervals[2:-3], 'o')
-		# plt.show()
+		# if self.plot_intervals == True:
+		# 	from matplotlib import pyplot as plt
+		# 	plt.plot(self.win.frameIntervals[2:-3], 'o')
+		# 	plt.show()
 
 		sys.exit()
 
@@ -215,8 +221,12 @@ if __name__ == '__main__':
 
 	ENV = ENVIRONMENT(namespace = type('test', (object,), {})(), DEMO = True, 
 						config = './letters_table_5x5.bcicfg')
-	# ENV.Fullscreen = True
+	ENV.Fullscreen = True
+
+	# ENV.plot_intervals = True
 	# ENV.photocell = True
+
 	ENV.refresh_rate = 60
+	ENV.shrink_matrix = 1
 	ENV.build_gui(monitor = mymon, screen = 0, stimuli_number = 25)
-	ENV.run_exp(stim_duration_FRAMES = 2, ISI_FRAMES = 2, waitforS = True)
+	ENV.run_exp(stim_duration_FRAMES = 4, ISI_FRAMES = 6, repetitions = 2, waitforS = True)
