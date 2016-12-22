@@ -88,8 +88,8 @@ class Eyetracker():
 
     def send_marker_to_iViewX(self, marker):
         res = iViewXAPI.iV_SendImageMessage(marker)
-        if str(self.res) !='1':
-            print "iV_SendImageMessage " + str(self.res)
+        # if str(self.res) !='1':
+            # print "iV_SendImageMessage " + str(self.res)
     
     def mainloop(self):
         self.res = iViewXAPI.iV_StartRecording ()
@@ -102,7 +102,6 @@ class Eyetracker():
             marker, timestamp_mark = self.im.pull_sample()
             IDF_marker =  str([marker, timestamp_mark])
             self.send_marker_to_iViewX(IDF_marker)
-            print marker
             if marker == [[999]]:
                 self.exit_()
 

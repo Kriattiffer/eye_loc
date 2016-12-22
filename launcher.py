@@ -6,17 +6,19 @@ import present
 import eyetracker
 
 
-config = './letters_table.bcicfg'
+config = './letters_table_5x5.bcicfg'
 screen = 1
 
 def stims(namespace):
 	'''Create stimulation window'''
 	ENV = present.ENVIRONMENT(config = config, namespace = namespace)
 	ENV.Fullscreen = True 	
-	ENV.build_gui(stimuli_number = 3,
-					monitor = present.mymon, screen = screen)
-	ENV.run_exp(stim_duration_FRAMES = 10, ISI_FRAMES = 5, 
-					waitforS = True, repetitions=10)
+	ENV.build_gui(monitor = present.mymon, 
+				  screen = 0, stimuli_number = 25)
+
+	ENV.run_exp(stim_duration_FRAMES = 4, ISI_FRAMES = 6, 
+				repetitions = 2, waitforS = True)
+
 	sys.stdout = open(str(os.getpid()) + ".out", "w") #MAGIC
 
 def eyetrack(namespace):

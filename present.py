@@ -185,10 +185,10 @@ class ENVIRONMENT():
 		core.wait(1)
 		self.win.close()
 
-		# if self.plot_intervals == True:
-		# 	from matplotlib import pyplot as plt
-		# 	plt.plot(self.win.frameIntervals[2:-3], 'o')
-		# 	plt.show()
+		if self.plot_intervals == True:
+			from matplotlib import pyplot as plt
+			plt.plot(self.win.frameIntervals[2:-3], 'o')
+			plt.show()
 
 		sys.exit()
 
