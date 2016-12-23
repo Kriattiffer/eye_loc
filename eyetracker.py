@@ -37,10 +37,10 @@ def create_stream(stream_name_markers = 'CycleStart', recursion_meter = 0, max_r
 
 class Eyetracker():
     """docstring for Eyetracker"""
-    def __init__(self, namespace, debug = False):
+    def __init__(self, namespace, debug = False, number_of_points = 9):
         namespace.BEGIN_EXP = [False]
         self.BEGIN_EXP =namespace.BEGIN_EXP
-
+        self.number_of_points = number_of_points
 
         self.im  = create_stream()
         self.host_ip = '192.168.0.2'
@@ -53,7 +53,7 @@ class Eyetracker():
     def  calibrate(self):
         '''configure and start calibration'''
 
-        numberofPoints = 2 # can be 2, 5 and 9
+        numberofPoints = self.number_of_points # can be 2, 5 and 9
         displayDevice = 0 # 0 - primary, 1- secondary (?)
         pointBrightness = 250
         backgroundBrightnress = 50
@@ -77,8 +77,8 @@ class Eyetracker():
     def validate(self):
         self.res = iViewXAPI.iV_Validate()
         print "iV_Validate " + str(self.res)
-        self.res = iViewXAPI.iV_ShowAccuracyMonitor ( )
-        self.res = iViewXAPI.iV_ShowEyeImageMonitor ( )
+        # self.res = iViewXAPI.iV_ShowAccuracyMonitor()
+        # self.res = iViewXAPI.iV_ShowEyeImageMonitor()
         # raw_input('press any key to continue')
 
     def connect_to_iView(self):

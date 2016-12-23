@@ -37,7 +37,6 @@ class ENVIRONMENT():
 			print e
 			self.exit_()
 
-
 		if DEMO == True:
 			self.LSL, self.conn = self.fake_lsl_and_conn()
 
@@ -182,7 +181,7 @@ class ENVIRONMENT():
 	def exit_(self):
 		''' exit and kill dependent processes'''		
 		self.LSL.push_sample([999])
-		core.wait(1)
+		core.wait(2)
 		self.win.close()
 
 		if self.plot_intervals == True:
@@ -227,6 +226,6 @@ if __name__ == '__main__':
 	# ENV.photocell = True
 
 	ENV.refresh_rate = 60
-	ENV.shrink_matrix = 1
+	ENV.shrink_matrix = 1.5
 	ENV.build_gui(monitor = mymon, screen = 0, stimuli_number = 25)
-	ENV.run_exp(stim_duration_FRAMES = 4, ISI_FRAMES = 6, repetitions = 2, waitforS = True)
+	ENV.run_exp(stim_duration_FRAMES = 6, ISI_FRAMES = 6, repetitions = 2, waitforS = False)
