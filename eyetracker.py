@@ -1,4 +1,11 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*- 
+# ----------------------------------------------------------------------------
+# Name:       eyetracker.py
+# Purpose:    Communication with SMI RED 500 device
+# Author: Rafael Grigoryan, kriattiffer at gmail.com
+# Date: December 20, 2016
+# ----------------------------------------------------------------------------
 
 from iViewXAPI import  *  #iViewX library
 from ctypes import *
@@ -82,7 +89,8 @@ class Eyetracker():
         # raw_input('press any key to continue')
 
     def connect_to_iView(self):
-        self.res = iViewXAPI.iV_Connect(c_char_p(self.host_ip), c_int(4444), c_char_p(self.server_ip), c_int(5555))
+        self.res = iViewXAPI.iV_Connect(c_char_p(self.host_ip), c_int(4444), 
+                                        c_char_p(self.server_ip), c_int(5555))
         # self.res = iViewXAPI.iV_GetSystemInfo(byref(systemData))
         # print "iV_sysinfo " + str(self.res)
 

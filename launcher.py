@@ -1,4 +1,11 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*- 
+# ----------------------------------------------------------------------------
+# Name:       launcher.py
+# Purpose:    Launch and control of multiple processes
+# Author: Rafael Grigoryan, kriattiffer at gmail.com
+# Date: December 20, 2016
+# ----------------------------------------------------------------------------
 
 import multiprocessing, sys, os, time
 import numpy as np

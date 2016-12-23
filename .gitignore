@@ -96,6 +96,5 @@ _*
 *.info
 *.out
 *.cls
-training_set/
 desktop.ini
 Thumbs.db

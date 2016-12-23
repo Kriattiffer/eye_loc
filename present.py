@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*- 
 # ----------------------------------------------------------------------------
 # Name:       present.py
-# Purpose:    Eye tracking experiment
+# Purpose:    Visual environment for eye tracking experiment
 # Author: Rafael Grigoryan, kriattiffer at gmail.com
 # Date: December 20, 2016
 # ----------------------------------------------------------------------------
@@ -116,8 +116,8 @@ class ENVIRONMENT():
 
 	def sendTrigger(self, stim):
 		'''This function is called with callOnFlip which
-		 "call the function just after the flip, before psychopy does a bit of housecleaning. ", 
-		 according to some dude on the internets'''
+		 "call the function just after the flip, before psychopy does a bit 
+		 of housecleaning. ", according to some dude on the internets'''
 		self.LSL.push_sample([self.stimlist[1][stim].name], pushthrough = True) # push marker immdiately after first bit of the sequence
 	
 	def wait_for_event(self, key, wait = True):
@@ -125,7 +125,8 @@ class ENVIRONMENT():
 			while key not in event.getKeys(): # wait for S key to start
 				pass
 
-	def run_exp(self, stim_duration_FRAMES = 3, ISI_FRAMES = 9, repetitions =  10, waitforS=True, stimuli_number = 6):
+	def run_exp(self, stim_duration_FRAMES = 3, ISI_FRAMES = 9, 
+				repetitions =  10, waitforS=True, stimuli_number = 6):
 		'Eye tracking expreiment. Stimuli duration and interstimuli interval should be supplied as number of frames.'
 		cycle_ms = (stim_duration_FRAMES + ISI_FRAMES)*1000.0/self.refresh_rate
 		print 'Stimuli cycle is %.2f ms' % cycle_ms
