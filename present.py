@@ -29,7 +29,7 @@ class ENVIRONMENT():
 		self.number_of_inputs = 12
 		self.shrink_matrix = 1
 		self.BEGIN_EXP = namespace.BEGIN_EXP = [False]
-		self.ROW_COLS = True
+		self.ROW_COLS = False
 
 		try:
 			self.config =  ast.literal_eval(open(config).read())
@@ -122,14 +122,17 @@ class ENVIRONMENT():
 		 of housecleaning. ", according to some dude on the internets'''
 		self.LSL.push_sample([self.stimlist[1][stim].name], pushthrough = True) # push marker immdiately after first bit of the sequence
 	
-	def wait_for_event(self, key, wait = True):
-		if wait == True or self.BEGIN_EXP != [False]:
-			while key not in event.getKeys(): # wait for S key to start
-				pass
+	def wait_for_event(self, key, wait = True, timer = 1):
+		if self.BEGIN_EXP != [False]:
+			if wait == True:
+				if key in 'abcdefghijklmnopqrstuvwxyz':
+					while key not in event.getKeys(): # wait for S key or LMB to start
+						pass
+					core.wait(timer)
 
 	def run_exp(self, stim_duration_FRAMES = 3, ISI_FRAMES = 9, 
 				repetitions =  10, waitforS=True, stimuli_number = 6):
-		'Eye tracking expreiment. Stimuli duration and interstimuli interval should be supplied as number of frames.'
+		'''Eye tracking experiment. Stimuli duration and inter-stimuli interval should be supplied as number of frames.'''
 		cycle_ms = (stim_duration_FRAMES + ISI_FRAMES)*1000.0/self.refresh_rate
 		print 'Stimuli cycle is %.2f ms' % cycle_ms
 		seq = [1]*stim_duration_FRAMES + [0]*ISI_FRAMES
@@ -140,28 +143,21 @@ class ENVIRONMENT():
 
 		for letter, aim in enumerate(aims):
 			self.LSL.push_sample([777]) # input of new letter
-			superseq = generate_superseq(numbers = self.stimuli_indices, repetitions = repetitions)
+			self.superseq = self.generate_superseq(numbers = self.stimuli_indices, repetitions = repetitions)
 
 			# aim_stimuli
-			self.stimlist[1][aim].autoDraw = True # indicate aim stimuli
-			self.stimlist[0][aim].autoDraw = False 
-			self.win.flip()
-			
-			core.wait(2)
-			
-			self.stimlist[0][aim].autoDraw = True  # fade back
-			self.stimlist[1][aim].autoDraw = False 
-			self.win.flip()
-			core.wait(1)
+			self.highlight_cell(aim)
 
 			if 'escape' in event.getKeys():
 				self.exit_()
+			
 
+			self.wait_for_event(key = 'LMB', wait = True)
 			self.win.flip() # just in case
 
-			for a in superseq:
+			for a_n, a in enumerate(self.superseq):
 				# first bit of sequence and marker
-				self.win.callOnFlip(self.sendTrigger, stim = a)
+				self.win.callOnFlip(self.sendTrigger, stim = a_n)
 				self.draw_screen(a,0)
 
 				# other bits of sequence
@@ -177,14 +173,27 @@ class ENVIRONMENT():
 		else:
 			self.exit_()
 
+	def highlight_cell(self, aim):
+			self.stimlist[1][aim].autoDraw = True # indicate aim stimuli
+			self.stimlist[0][aim].autoDraw = False 
+			self.win.flip()
+			
+			core.wait(2)
+			
+			self.stimlist[0][aim].autoDraw = True  # fade back
+			self.stimlist[1][aim].autoDraw = False 
+			self.win.flip()
+			core.wait(1)
+
 	def draw_screen(self, a, b):
-		if self.ROW_COLS:
-			for a in [2]:
-				self.stimlist[b][a].autoDraw = True
-				self.stimlist[b==0][a].autoDraw = False			
+		if self.ROW_COLS: # in row-col mode, stimlist is connstructed from lists, representing rows and columns
+			for rc  in a:
+				self.stimlist[b][rc].autoDraw = True
+				self.stimlist[b==0][rc].autoDraw = False			
 		else:	
 			self.stimlist[b][a].autoDraw = True
 			self.stimlist[b==0][a].autoDraw = False
+		
 		self.win.flip()
 
 	def exit_(self):
@@ -200,28 +209,34 @@ class ENVIRONMENT():
 
 		sys.exit()
 
-def generate_superseq(numbers =[0,1,2,3], repetitions = 10):
-	''' receives IDs of stimuli, and number of repetitions, returns stimuli sequence without repeats'''
-	seq = numbers*repetitions
-	random.shuffle(seq) # generate random list
-	dd_l =  [seq[a] for a in range(len(seq)) if seq[a] != seq[a-1]] #find duplicates
-	dup_l =  [seq[a] for a in range(len(seq)) if seq[a] == seq[a-1]]
-	for a in dup_l: # deduplicate
-		p = [b for b in range(len(dd_l)) if dd_l[b] !=a and dd_l[b-1] !=a]
-		dd_l.insert(p[1],a)
-	return dd_l
+	def generate_superseq(self, numbers =[0,1,2,3], repetitions = 10):
+		''' receives IDs of stimuli, and number of repetitions, returns stimuli sequence without repeats'''
+		
+		def create_deduplicated_list(numbers, repetitions):
+			seq = numbers*repetitions
+			random.shuffle(seq) # generate random list
+			dd_l =  [seq[a] for a in range(len(seq)) if seq[a] != seq[a-1]] #find duplicates
+			dup_l =  [seq[a] for a in range(len(seq)) if seq[a] == seq[a-1]]
+			for a in dup_l: # deduplicate
+				p = [b for b in range(len(dd_l)) if dd_l[b] !=a and dd_l[b-1] !=a]
+				dd_l.insert(p[1],a)
+			print dd_l
+
+			return dd_l
+
+		if self.ROW_COLS:
+			pass
+		else:
+			dd_l = create_deduplicated_list(numbers, repetitions)
+
+		print dd_l
+		return dd_l
 
 def create_lsl_outlet(name = 'CycleStart', DeviceMac = '00:07:80:64:EB:46'):
-	''' Create outlet for Enobio. Requires name of the stream (same as in NIC) and maybe MAC adress of the device. Returns outlet object. Use by Outlet.push_sample([MARKER_INT])'''
+	''' Create outlet for eye tracker. Returns outlet object. Use by Outlet.push_sample([MARKER_INT])'''
 	info = StreamInfo(name,'Markers',1,0,'int32', DeviceMac)
 	outlet =StreamOutlet(info)
 	return outlet
-
-def view():
-	'''function for multiprocessing'''
-	ENV = ENVIRONMENT()
-	ENV.build_gui(monitor = mymon)
-	ENV.run_exp(base_mseq)
 
 if __name__ == '__main__':
 	print 'done imports'
@@ -237,4 +252,7 @@ if __name__ == '__main__':
 	ENV.refresh_rate = 60
 	ENV.shrink_matrix = 1.5
 	ENV.build_gui(monitor = mymon, screen = 0, stimuli_number = 25)
-	ENV.run_exp(stim_duration_FRAMES = 6, ISI_FRAMES = 6, repetitions = 2, waitforS = False)
+	ENV.BEGIN_EXP = [True]
+	ENV.ROW_COLS = True
+
+	ENV.run_exp(stim_duration_FRAMES = 10, ISI_FRAMES = 10, repetitions = 3, waitforS = False)
