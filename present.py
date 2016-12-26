@@ -29,6 +29,7 @@ class ENVIRONMENT():
 		self.number_of_inputs = 12
 		self.shrink_matrix = 1
 		self.BEGIN_EXP = namespace.BEGIN_EXP = [False]
+		self.ROW_COLS = True
 
 		try:
 			self.config =  ast.literal_eval(open(config).read())
@@ -85,6 +86,7 @@ class ENVIRONMENT():
 
 		# read image from rescources dir and crate ImageStim objects
 		stimpics = os.listdir(self.config['stimuli_dir'])
+		stimpics.sort(key=lambda x: int(x.split('_')[1]))
 		for pic in stimpics:
 			name = int(pic.split('_')[1])
 			pic = os.path.join(self.config['stimuli_dir'], pic)
@@ -121,7 +123,7 @@ class ENVIRONMENT():
 		self.LSL.push_sample([self.stimlist[1][stim].name], pushthrough = True) # push marker immdiately after first bit of the sequence
 	
 	def wait_for_event(self, key, wait = True):
-		if wait == True or self.BEGIN_EXP == [False]:
+		if wait == True or self.BEGIN_EXP != [False]:
 			while key not in event.getKeys(): # wait for S key to start
 				pass
 
@@ -132,7 +134,7 @@ class ENVIRONMENT():
 		print 'Stimuli cycle is %.2f ms' % cycle_ms
 		seq = [1]*stim_duration_FRAMES + [0]*ISI_FRAMES
 
-		aims = [int(a) -1 for a in np.genfromtxt('aims_play.txt')]
+		aims = [int(a) for a in np.genfromtxt('aims_play.txt')]
 
 		self.wait_for_event(key = 's', wait = waitforS)
 
@@ -160,17 +162,13 @@ class ENVIRONMENT():
 			for a in superseq:
 				# first bit of sequence and marker
 				self.win.callOnFlip(self.sendTrigger, stim = a)
-				self.stimlist[1][a].autoDraw = True
-				self.stimlist[0][a].autoDraw = False
-				self.win.flip()
+				self.draw_screen(a,0)
 
 				# other bits of sequence
 				for b in seq[1:]:
-					self.stimlist[b][a].autoDraw = True
-					self.stimlist[b==0][a].autoDraw = False
-					self.win.flip()
+					self.draw_screen(a,b)
+						
 
-			
 			core.wait(1.5) # wait one second after last blink
 			self.LSL.push_sample([888]) # end of the trial
 			core.wait(0.5)
@@ -178,6 +176,16 @@ class ENVIRONMENT():
 		
 		else:
 			self.exit_()
+
+	def draw_screen(self, a, b):
+		if self.ROW_COLS:
+			for a in [2]:
+				self.stimlist[b][a].autoDraw = True
+				self.stimlist[b==0][a].autoDraw = False			
+		else:	
+			self.stimlist[b][a].autoDraw = True
+			self.stimlist[b==0][a].autoDraw = False
+		self.win.flip()
 
 	def exit_(self):
 		''' exit and kill dependent processes'''		
