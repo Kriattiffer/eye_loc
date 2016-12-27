@@ -79,6 +79,9 @@ class ENVIRONMENT():
 							# useFBO=True,
 							screen = screen # 1- right, 0 - left
 							)
+
+		self.mouse = event.Mouse(win = self.win)
+
 		self.win.setRecordFrameIntervals(True)
 
 		self.refresh_rate =  math.ceil(self.win.monitorFramePeriod**-1)
@@ -120,7 +123,7 @@ class ENVIRONMENT():
 		'''This function is called with callOnFlip which
 		 "call the function just after the flip, before psychopy does a bit 
 		 of housecleaning. ", according to some dude on the internets'''
-		self.LSL.push_sample([self.stimlist[1][stim].name], pushthrough = True) # push marker immdiately after first bit of the sequence
+		self.LSL.push_sample([self.stim_ind.index(stim)], pushthrough = True) # push marker immdiately after first bit of the sequence
 	
 	def wait_for_event(self, key, wait = True, timer = 1):
 		if self.BEGIN_EXP != [False]:
@@ -129,6 +132,12 @@ class ENVIRONMENT():
 					while key not in event.getKeys(): # wait for S key or LMB to start
 						pass
 					core.wait(timer)
+				elif key == 'LMB':
+					while not self.mouse.getPressed()[0]:
+						pass
+					core.wait(timer)
+
+
 
 	def run_exp(self, stim_duration_FRAMES = 3, ISI_FRAMES = 9, 
 				repetitions =  10, waitforS=True, stimuli_number = 6):
@@ -145,19 +154,19 @@ class ENVIRONMENT():
 			self.LSL.push_sample([777]) # input of new letter
 			self.superseq = self.generate_superseq(numbers = self.stimuli_indices, repetitions = repetitions)
 
-			# aim_stimuli
-			self.highlight_cell(aim)
+			self.wait_for_event(key = 'LMB', wait = True)
+
+			self.highlight_cell(aim) # indicate aim_stimulus
 
 			if 'escape' in event.getKeys():
 				self.exit_()
 			
 
-			self.wait_for_event(key = 'LMB', wait = True)
 			self.win.flip() # just in case
 
-			for a_n, a in enumerate(self.superseq):
+			for a in self.superseq:
 				# first bit of sequence and marker
-				self.win.callOnFlip(self.sendTrigger, stim = a_n)
+				self.win.callOnFlip(self.sendTrigger, stim = a)
 				self.draw_screen(a,0)
 
 				# other bits of sequence
@@ -220,16 +229,20 @@ class ENVIRONMENT():
 			for a in dup_l: # deduplicate
 				p = [b for b in range(len(dd_l)) if dd_l[b] !=a and dd_l[b-1] !=a]
 				dd_l.insert(p[1],a)
-			print dd_l
-
 			return dd_l
 
 		if self.ROW_COLS:
-			pass
+			self.stim_ind = self.config['rows'] + self.config['columns']
+			dd_l_rows = create_deduplicated_list(range(int(math.sqrt(len(numbers)))), repetitions)
+			dd_l_cols = create_deduplicated_list(range(int(math.sqrt(len(numbers)))), repetitions)
+			dd_l_cols = [a + int(math.sqrt(len(numbers))) for a in dd_l_cols]
+			dd_l = [[self.stim_ind[a], self.stim_ind[b]] for a,b in zip(dd_l_rows, dd_l_cols)]
+			dd_l = [a for b in dd_l for a in b]
+
 		else:
+			self.stim_ind = numbers
 			dd_l = create_deduplicated_list(numbers, repetitions)
 
-		print dd_l
 		return dd_l
 
 def create_lsl_outlet(name = 'CycleStart', DeviceMac = '00:07:80:64:EB:46'):
@@ -253,6 +266,7 @@ if __name__ == '__main__':
 	ENV.shrink_matrix = 1.5
 	ENV.build_gui(monitor = mymon, screen = 0, stimuli_number = 25)
 	ENV.BEGIN_EXP = [True]
+
 	ENV.ROW_COLS = True
 
 	ENV.run_exp(stim_duration_FRAMES = 10, ISI_FRAMES = 10, repetitions = 3, waitforS = False)

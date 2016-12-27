@@ -110,7 +110,7 @@ class Eyetracker():
             marker, timestamp_mark = self.im.pull_sample()
             IDF_marker =  str([marker, timestamp_mark])
             self.send_marker_to_iViewX(IDF_marker)
-            if marker == [[999]]:
+            if marker == [999]:
                 self.exit_()
 
     def main(self):
@@ -134,6 +134,7 @@ class Eyetracker():
         else:
             print "iV_SaveData " + str(self.res)
         self.res = iViewXAPI.iV_Disconnect()
+        
         sys.exit()
 
 

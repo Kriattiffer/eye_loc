@@ -22,20 +22,23 @@ def stims(namespace):
 	
 	ENV.Fullscreen = True 	
 	ENV.refresh_rate = 120
-	ENV.shrink_matrix = 2
+	ENV.shrink_matrix = 1
 	ENV.plot_intervals = True
+	ENV.BEGIN_EXP = [True]
+
+	ENV.ROW_COLS = True
 
 	ENV.build_gui(monitor = present.mymon, 
 				  screen = screen, stimuli_number = 25)
-	ENV.run_exp(stim_duration_FRAMES = 6, ISI_FRAMES = 6, 
-				repetitions = 100, waitforS = False)
+	ENV.run_exp(stim_duration_FRAMES = 2, ISI_FRAMES = 2, 
+				repetitions = 4, waitforS = False)
 
 	sys.stdout = open(str(os.getpid()) + ".out", "w") #MAGIC
 
 def eyetrack(namespace):
 
 	RED = eyetracker.Eyetracker(namespace = namespace, debug = True,
-								number_of_points = 9)
+								number_of_points = 2)
 	RED.main()
 	sys.stdout = open(str(os.getpid()) + ".out", "w") #MAGIC
 
@@ -43,9 +46,6 @@ if __name__ == '__main__':
 
 	mgr = multiprocessing.Manager()
 	namespace = mgr.Namespace()
-	BEGIN_EXP = multiprocessing.Event()
-	newstdin = os.dup(sys.stdin.fileno())
-
 
 	pgui = multiprocessing.Process(target=stims, args = (namespace,))
 	peye = multiprocessing.Process(target=eyetrack, args = (namespace,))
