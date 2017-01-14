@@ -43,7 +43,7 @@ def create_stream(stream_name_markers = 'CycleStart', recursion_meter = 0, max_r
 
 
 class Eyetracker():
-    """docstring for Eyetracker"""
+    """ Class for interaction with iViewXAPI and experiment in present.py """
     def __init__(self, namespace, debug = False, number_of_points = 9):
         namespace.BEGIN_EXP = [False]
         self.BEGIN_EXP =namespace.BEGIN_EXP
@@ -53,7 +53,6 @@ class Eyetracker():
         self.host_ip = '192.168.0.2'
         self.server_ip = '192.168.0.3'
         if not self.im:
-            print debug
             if debug != True:
                 self.exit_()
 
@@ -82,6 +81,8 @@ class Eyetracker():
 
     
     def validate(self):
+        ''' Present 4 points to validate last calibration.
+            Results are displayed in iViewX'''
         self.res = iViewXAPI.iV_Validate()
         print "iV_Validate " + str(self.res)
         # self.res = iViewXAPI.iV_ShowAccuracyMonitor()
@@ -89,17 +90,18 @@ class Eyetracker():
         # raw_input('press any key to continue')
 
     def connect_to_iView(self):
+        ''' Connect to iViewX using predeficed host and server IPs'''
         self.res = iViewXAPI.iV_Connect(c_char_p(self.host_ip), c_int(4444), 
                                         c_char_p(self.server_ip), c_int(5555))
-        # self.res = iViewXAPI.iV_GetSystemInfo(byref(systemData))
-        # print "iV_sysinfo " + str(self.res)
+        print "iV_sysinfo " + str(self.res)
 
     def send_marker_to_iViewX(self, marker):
+        ''' Sends marker to the eyetracker. Marker becomes iViewX event. '''
         res = iViewXAPI.iV_SendImageMessage(marker)
         # if str(self.res) !='1':
             # print "iV_SendImageMessage " + str(self.res)
     
-    def mainloop(self):
+    def experiment_loop(self):
         self.res = iViewXAPI.iV_StartRecording ()
         print "iV_record " + str(self.res)
         if not self.im:
@@ -118,10 +120,11 @@ class Eyetracker():
         self.calibrate()
         self.validate()
         self.BEGIN_EXP = [True]
-        self.mainloop()
+        self.experiment_loop()
 
 
     def exit_(self):
+        ''' Close all streams, save data and exit.'''
         self.im.close_stream()
         time.sleep(1)
         self.res = iViewXAPI.iV_StopRecording()

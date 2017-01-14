@@ -38,28 +38,10 @@ class ENVIRONMENT():
 			print e
 			self.exit_()
 
-		if DEMO == True:
-			self.LSL, self.conn = self.fake_lsl_and_conn()
 
-		elif DEMO == False:
-			self.LSL = create_lsl_outlet() # create outlet for sync with NIC
-			core.wait(1)		
-		
-	def fake_lsl_and_conn(self):
-		fakeLSL = create_lsl_outlet() # create outlet for sync with NIC - dosen't need connection
-		class Fakeconn(object):
-			"""dummy connection class with recv() method"""
-			def __init__(self):
-				pass
-			def recv(self, arg):
-				'''returns different strings in different enviroments 
-					depending on number of bits input'''
-				if arg == 1024:
-					return 'answer'
-				elif arg == 2048:
-					return 'startonlinesession'
-		return fakeLSL, Fakeconn()
-				
+		self.LSL = create_lsl_outlet() # create outlet for sync
+		core.wait(1)		
+
 
 
 	def build_gui(self, stimuli_number = 6, 
@@ -126,6 +108,8 @@ class ENVIRONMENT():
 		self.LSL.push_sample([self.stim_ind.index(stim)], pushthrough = True) # push marker immdiately after first bit of the sequence
 	
 	def wait_for_event(self, key, wait = True, timer = 1):
+		''' Wait  for S key or LMB if self.BEGIN_EXP is [True], 
+			which indicates the end of eye tracker calibration.'''
 		if self.BEGIN_EXP != [False]:
 			if wait == True:
 				if key in 'abcdefghijklmnopqrstuvwxyz':
@@ -182,15 +166,16 @@ class ENVIRONMENT():
 		else:
 			self.exit_()
 
-	def highlight_cell(self, aim):
-			self.stimlist[1][aim].autoDraw = True # indicate aim stimuli
-			self.stimlist[0][aim].autoDraw = False 
+	def highlight_cell(self, cell, displaytime = 2):
+			''' Highlight single cell for displaytime seconds, then wait one second before continuing'''
+			self.stimlist[1][cell].autoDraw = True # indicate aim stimuli
+			self.stimlist[0][cell].autoDraw = False 
 			self.win.flip()
 			
-			core.wait(2)
+			core.wait(displaytime)
 			
-			self.stimlist[0][aim].autoDraw = True  # fade back
-			self.stimlist[1][aim].autoDraw = False 
+			self.stimlist[0][cell].autoDraw = True  # fade back
+			self.stimlist[1][cell].autoDraw = False 
 			self.win.flip()
 			core.wait(1)
 
