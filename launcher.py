@@ -8,37 +8,69 @@
 # ----------------------------------------------------------------------------
 
 import multiprocessing, sys, os, time, argparse
-import present, eyetracker
+import present, eyetracker, eeg, classify
 
 
 config = './letters_table_5x5.bcicfg'
-screen = 1
+config = './hexospell.bcicfg'
+
+screen = 0
+refresh_rate = 60
+top_exp_length = 60
+device = 'NVX52'
+mapnames = {'eeg':'./eegdata.mmap', 
+			'markers':'./markers.mmap',
+			'photocell': './photocell.mmap'}
+classifier_channels	 = range(8)
+savedclass = False
+
 
 def stims(namespace, ISI_FRAMES = 4, stim_duration_FRAMES = 4, repeats = 4):
 	'''Create stimulation window'''
+	print 'gdxjhgchgcvjhgc'
 	ENV = present.ENVIRONMENT(config = config, namespace = namespace)
 	
 	ENV.Fullscreen = True 	
-	ENV.refresh_rate = 120
-	ENV.shrink_matrix = 1
-	ENV.plot_intervals = True
-	ENV.BEGIN_EXP = [True]
-
-	ENV.ROW_COLS = True
+	ENV.refresh_rate = refresh_rate
+	ENV.shrink_matrix = 1.2
 
 	ENV.build_gui(monitor = present.mymon, 
-				  screen = screen, stimuli_number = 25)
+				  screen = screen, stimuli_number = 3)
+	if savedclass:
+		ENV.LEARN = False
+		print 'Using saved classifier from %s' % savedclass
+	else:
+		print 'Buildindg new classifier'
+
 	ENV.run_exp(stim_duration_FRAMES = stim_duration_FRAMES, ISI_FRAMES = ISI_FRAMES, 
 				repetitions = repeats, waitforS = False)
 
 	sys.stdout = open(str(os.getpid()) + ".out", "w") #MAGIC
 
 def eyetrack(namespace):
-
+	'''Manage Red eyetracker'''
 	RED = eyetracker.Eyetracker(namespace = namespace, debug = True,
-								number_of_points = 9)
+								number_of_points = 2, screen = screen)
 	RED.main()
 	sys.stdout = open(str(os.getpid()) + ".out", "w") #MAGIC
+
+def rec(namespace):
+	''' Create stream class and start recording'''
+	STRM = eeg.EEG_STREAM(namespace = namespace, device = device, mapnames = mapnames, top_exp_length = top_exp_length)
+	STRM.record()
+	sys.stdout = open(str(os.getpid()) + ".out", "w")
+
+def class_(namespace):
+	'''Create classifer class and wait for markers from present.py'''
+	CLSF = classify.Classifier(namespace = namespace, 
+									mapnames = mapnames, online = True,
+									top_exp_length = top_exp_length, 
+									classifier_channels = classifier_channels, 
+									saved_classifier = savedclass,
+									config = config)
+	CLSF.mainloop()
+	sys.stdout = open(str(os.getpid()) + ".out", "w")
+
 
 if __name__ == '__main__':
 
@@ -54,9 +86,22 @@ if __name__ == '__main__':
 	pgui = multiprocessing.Process(target=stims, args = (namespace,), kwargs = {'ISI_FRAMES':args['isi'], 'repeats':args['rpt'], 
 																				'stim_duration_FRAMES':args['sdf'] })
 	peye = multiprocessing.Process(target=eyetrack, args = (namespace,))
+	prec = multiprocessing.Process(target=rec, args = (namespace,))
+	pcls = multiprocessing.Process(target=class_, args = (namespace,))
+
+
 	print 'startig GUI...'
 	pgui.start()
 	print 'startig eyetracking server...'
 	peye.start()
+	print 'startig EEG recording...'
+	prec.start()
+	print 'startig classifier'
+	pcls.start()
+
+
+
+	prec.join()
 	peye.join()
-	# pgui.join()
+	pgui.join()
+	pcls.join()

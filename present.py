@@ -7,32 +7,51 @@
 # Date: December 20, 2016
 # ----------------------------------------------------------------------------
 
-import os, sys, random, ast, math
+import os, sys, random, ast, math, time, socket
 from psychopy import visual, core, event, monitors
 from pylsl import StreamInfo, StreamOutlet
 import numpy as np
 
 mymon = monitors.Monitor('Eizo', distance=48, width = 52.5)
 mymon.setSizePix([1920, 1080])		
-# mymon.setSizePix([1024, 768])		
 
 
 class ENVIRONMENT():
 	""" class for visual stimulation during the experiment """
 	def __init__(self, namespace, DEMO = False, config = './letters_table_5x5.bcicfg'):
+		self.namespace = namespace
 
 		self.background = '#868686'
+		self.refresh_rate = 120
 
 		self.Fullscreen = False
 		self.plot_intervals = False
 		self.window_size = (1920, 1080)
+		self.LEARN = False
+
 		self.number_of_inputs = 12
+
 		self.shrink_matrix = 1
-		self.BEGIN_EXP = namespace.BEGIN_EXP = [False]
-		self.ROW_COLS = False
+		
+		# if DEMO == True:
+		# 	self.LSL, self.conn = self.fake_lsl_and_conn()
+
+		# elif DEMO == False:
+		# 	self.LSL = create_lsl_outlet() # create outlet for sync with NIC
+		# 	core.wait(1)		
+		# 	socket.socket.bind(('localhost', 22828))
+		# 	socket.socket.listen(1)
+		# 	self.conn, addr = socket.socket.accept()	
+		# 	print 'Classifier socket connected'
+		
+	
 
 		try:
 			self.config =  ast.literal_eval(open(config).read())
+			if 'rows' in self.config.keys():
+				self.ROW_COLS = True
+			else:
+				self.ROW_COLS = False
 		except Exception, e:
 			print 'Problem with config file:'
 			print e
@@ -42,12 +61,26 @@ class ENVIRONMENT():
 		self.LSL = create_lsl_outlet() # create outlet for sync
 		core.wait(1)		
 
+	def fake_lsl_and_conn(self):
+			fakeLSL = create_lsl_outlet() # create outlet for sync with NIC - dosen't need connection
+			class Fakeconn(object):
+				"""dummy connection class with recv() method"""
+				def __init__(self):
+					pass
+				def recv(self, arg):
+					'''returns different strings in different enviroments 
+						depending on number of bits input'''
+					if arg == 1024:
+						return 'answer'
+					elif arg == 2048:
+						return 'startonlinesession'
+			return fakeLSL, Fakeconn()
 
-
-	def build_gui(self, stimuli_number = 6, 
+	def build_gui(self, stimuli_number = False, 
 					monitor = mymon, fix_size = 1, screen  = 1):
 		''' function for creating visual enviroment. Input: various parameters of stimuli, all optional'''
-		
+		if not stimuli_number:
+			stimuli_number = len(self.config['positions'])
 		self.stimuli_indices = range(stimuli_number)
 		
 		active_stims = []
@@ -66,7 +99,7 @@ class ENVIRONMENT():
 
 		self.win.setRecordFrameIntervals(True)
 
-		self.refresh_rate =  math.ceil(self.win.monitorFramePeriod**-1)
+		# self.refresh_rate =  math.ceil(self.win.monitorFramePeriod**-1)
 		self.frame_time = self.win.monitorFramePeriod*1000
 
 		# read image from rescources dir and crate ImageStim objects
@@ -88,6 +121,10 @@ class ENVIRONMENT():
 		active_stims  = active_stims
 		non_active_stims  = non_active_stims
 
+		self.photocell = visual.Rect(self.win, width=0.1, height=0.2, fillColor = 'black', lineWidth = 0)
+		self.photocell.pos = [0.95,0.9]
+		self.photocell.autoDraw = True
+
 		# position circles over board. units are taken from the create_circle function
 		poslist = self.config['positions']
 		for a in active_stims:
@@ -100,26 +137,30 @@ class ENVIRONMENT():
 			
 		self.stimlist = [non_active_stims, active_stims]
 
-
+	
 	def sendTrigger(self, stim):
 		'''This function is called with callOnFlip which
 		 "call the function just after the flip, before psychopy does a bit 
 		 of housecleaning. ", according to some dude on the internets'''
-		self.LSL.push_sample([self.stim_ind.index(stim)], pushthrough = True) # push marker immdiately after first bit of the sequence
+
+		self.LSL.push_sample([self.stim_ind.index(stim)],  pushthrough = True) # push marker immdiately after first bit of the sequence
 	
-	def wait_for_event(self, key, wait = True, timer = 1):
-		''' Wait  for S key or LMB if self.BEGIN_EXP is [True], 
-			which indicates the end of eye tracker calibration.'''
-		if self.BEGIN_EXP != [False]:
-			if wait == True:
-				if key in 'abcdefghijklmnopqrstuvwxyz':
-					while key not in event.getKeys(): # wait for S key or LMB to start
-						pass
-					core.wait(timer)
-				elif key == 'LMB':
-					while not self.mouse.getPressed()[0]:
-						pass
-					core.wait(timer)
+	def wait_for_event(self, key = 'LMB', wait = True, timer = 1):
+		''' Wait for all process flags, to ansure that the experiment dosen't start too early.
+			Then wait for  
+		'''
+		while not hasattr(self.namespace,'EYETRACK_CALIB_SUCCESS') or \
+			  not hasattr(self.namespace,'EEG_RECORDING_STARTED'):
+			core.wait(0.01)
+		if wait == True:
+			if key in 'abcdefghijklmnopqrstuvwxyz':
+				while key not in event.getKeys(): # wait for S key or LMB to start
+					pass
+			elif key == 'LMB':
+				while not self.mouse.getPressed()[0]:
+					pass
+			core.wait(timer)
+
 
 
 
@@ -131,8 +172,14 @@ class ENVIRONMENT():
 		seq = [1]*stim_duration_FRAMES + [0]*ISI_FRAMES
 
 		aims = [int(a) for a in np.genfromtxt('aims_play.txt')]
-
 		self.wait_for_event(key = 's', wait = waitforS)
+
+		if self.LEARN == True:
+			aims = [int(a)-1 for a in np.genfromtxt('aims_learn.txt')]
+			print aims
+		elif self.LEARN == False:
+			aims = [int(a) -1 for a in np.genfromtxt('aims_play.txt')]
+			print aims
 
 		for letter, aim in enumerate(aims):
 			self.LSL.push_sample([777]) # input of new letter
@@ -160,9 +207,32 @@ class ENVIRONMENT():
 
 			core.wait(1.5) # wait one second after last blink
 			self.LSL.push_sample([888]) # end of the trial
-			core.wait(0.5)
-			print 'next letter'
+			core.wait(0.5)			
+			if self.LEARN == False:
+				pass
+				# while 'answer' not in self.conn.recv(1024):
+					# pass	
+				print 'next letter'
 		
+		if self.LEARN == True:
+			core.wait(1)
+			self.LSL.push_sample([888999]) # end of learningsession
+			# start online session
+			print stim_duration_FRAMES
+			self.LEARN = False
+
+			# wait while classifier finishes learning
+			while self.conn.recv(2048) != 'startonlinesession':
+				pass
+			print  'learning session finished, press s to continue'
+			while 's' not in event.getKeys(): # wait for S key to start
+				pass
+			print 'Online session started'
+			
+			self.LSL.push_sample([999888])
+			self.run_exp(stim_duration_FRAMES = stim_duration_FRAMES,
+							  ISI_FRAMES = ISI_FRAMES, repetitions =  repetitions,
+							  waitforS= waitforS, stimuli_number = stimuli_number)
 		else:
 			self.exit_()
 
@@ -187,12 +257,18 @@ class ENVIRONMENT():
 		else:	
 			self.stimlist[b][a].autoDraw = True
 			self.stimlist[b==0][a].autoDraw = False
-		
+
+		if self.photocell:
+			if b ==1:
+				self.photocell.fillColor = 'white'
+			else:
+				self.photocell.fillColor = 'black'
 		self.win.flip()
 
 	def exit_(self):
 		''' exit and kill dependent processes'''		
 		self.LSL.push_sample([999])
+		print 'exiting GUI'
 		core.wait(2)
 		self.win.close()
 
@@ -231,27 +307,24 @@ class ENVIRONMENT():
 		return dd_l
 
 def create_lsl_outlet(name = 'CycleStart', DeviceMac = '00:07:80:64:EB:46'):
-	''' Create outlet for eye tracker. Returns outlet object. Use by Outlet.push_sample([MARKER_INT])'''
+	''' Create outlet for sending markers. Returns outlet object. Use by Outlet.push_sample([MARKER_INT])'''
 	info = StreamInfo(name,'Markers',1,0,'int32', DeviceMac)
 	outlet =StreamOutlet(info)
 	return outlet
 
+class emptyclass():
+	"""Fake namespace-like class for testing purposes"""
+	EYETRACK_CALIB_SUCCESS = True
+	EEG_RECORDING_STARTED = True
+		
 if __name__ == '__main__':
 	print 'done imports'
 	os.chdir(os.path.dirname(__file__)) 	# VLC PATH BUG ==> submit?
 
-	ENV = ENVIRONMENT(namespace = type('test', (object,), {})(), DEMO = True, 
-						config = './letters_table_5x5.bcicfg')
+	ENV = ENVIRONMENT(namespace =emptyclass, DEMO = True, config = 'hexospell.bcicfg')
 	ENV.Fullscreen = True
-
-	# ENV.plot_intervals = True
-	# ENV.photocell = True
-
 	ENV.refresh_rate = 60
-	ENV.shrink_matrix = 1.5
-	ENV.build_gui(monitor = mymon, screen = 0, stimuli_number = 25)
-	ENV.BEGIN_EXP = [True]
+	ENV.shrink_matrix = 1.2
+	ENV.build_gui(monitor = mymon, screen = 0, stimuli_number = 6)
 
-	ENV.ROW_COLS = True
-
-	ENV.run_exp(stim_duration_FRAMES = 10, ISI_FRAMES = 10, repetitions = 3, waitforS = False)
+	ENV.run_exp(stim_duration_FRAMES = 3, ISI_FRAMES = 6, repetitions = 10, waitforS = False)

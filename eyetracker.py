@@ -44,10 +44,10 @@ def create_stream(stream_name_markers = 'CycleStart', recursion_meter = 0, max_r
 
 class Eyetracker():
     """ Class for interaction with iViewXAPI and experiment in present.py """
-    def __init__(self, namespace, debug = False, number_of_points = 9):
-        namespace.BEGIN_EXP = [False]
-        self.BEGIN_EXP =namespace.BEGIN_EXP
+    def __init__(self, namespace, debug = False, number_of_points = 9, screen = 0):
+        self.namespace = namespace
         self.number_of_points = number_of_points
+        self.screen = screen
 
         self.im  = create_stream()
         self.host_ip = '192.168.0.2'
@@ -60,7 +60,7 @@ class Eyetracker():
         '''configure and start calibration'''
 
         numberofPoints = self.number_of_points # can be 2, 5 and 9
-        displayDevice = 0 # 0 - primary, 1- secondary (?)
+        displayDevice = self.screen # 0 - primary, 1- secondary (?)
         pointBrightness = 250
         backgroundBrightnress = 50
         targetFile = b""
@@ -119,7 +119,7 @@ class Eyetracker():
         self.connect_to_iView()
         self.calibrate()
         self.validate()
-        self.BEGIN_EXP = [True]
+        self.namespace.EYETRACK_CALIB_SUCCESS = True
         self.experiment_loop()
 
 
