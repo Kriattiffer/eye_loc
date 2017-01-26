@@ -27,7 +27,7 @@ class ENVIRONMENT():
 		self.Fullscreen = False
 		self.plot_intervals = False
 		self.window_size = (1920, 1080)
-		self.LEARN = False
+		self.LEARN = True
 
 		self.number_of_inputs = 12
 
@@ -57,24 +57,9 @@ class ENVIRONMENT():
 			print e
 			self.exit_()
 
-
 		self.LSL = create_lsl_outlet() # create outlet for sync
-		core.wait(1)		
+		core.wait(0.1)		
 
-	def fake_lsl_and_conn(self):
-			fakeLSL = create_lsl_outlet() # create outlet for sync with NIC - dosen't need connection
-			class Fakeconn(object):
-				"""dummy connection class with recv() method"""
-				def __init__(self):
-					pass
-				def recv(self, arg):
-					'''returns different strings in different enviroments 
-						depending on number of bits input'''
-					if arg == 1024:
-						return 'answer'
-					elif arg == 2048:
-						return 'startonlinesession'
-			return fakeLSL, Fakeconn()
 
 	def build_gui(self, stimuli_number = False, 
 					monitor = mymon, fix_size = 1, screen  = 1):
@@ -205,7 +190,7 @@ class ENVIRONMENT():
 					self.draw_screen(a,b)
 						
 
-			core.wait(1.5) # wait one second after last blink
+			core.wait(2) # wait one second after last blink so the last analysis epoch is not trimmed
 			self.LSL.push_sample([888]) # end of the trial
 			core.wait(0.5)			
 			if self.LEARN == False:
@@ -222,7 +207,7 @@ class ENVIRONMENT():
 			self.LEARN = False
 
 			# wait while classifier finishes learning
-			while self.conn.recv(2048) != 'startonlinesession':
+			while not hasattr(self.namespace,'START_ONLINE_SESSION'):
 				pass
 			print  'learning session finished, press s to continue'
 			while 's' not in event.getKeys(): # wait for S key to start

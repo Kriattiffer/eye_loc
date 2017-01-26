@@ -30,7 +30,7 @@ class Classifier():
 		if classifier_channels == []:
 			self.classifier_channels = range(self.number_of_EEG_channels)
 		else:
-			assert (len(classifier_channels)<= self.number_of_EEG_channels), 'number of classifier channels cannot be larger then total number of channels' 
+			assert (len(classifier_channels)<= self.number_of_EEG_channels), 'number of classifier channels cannot be greater then total number of channels' 
 			assert not bool(sum([a >=self.number_of_EEG_channels for a in classifier_channels])), 'some classifier channels are not present in the data'
 			assert len(classifier_channels) == len(set(classifier_channels)), 'there are duplicates in classifier channels'
 			self.classifier_channels = classifier_channels
@@ -46,13 +46,14 @@ class Classifier():
 		self.learn_aims = np.genfromtxt('aims_learn.txt') -1
 		
 		record_length = self.sampling_rate*60*top_exp_length*1.2
-		array_shape = (record_length, self.number_of_EEG_channels+1)  # include timestamp channel
+		array_shape = (int(record_length), self.number_of_EEG_channels+1)  # include timestamp channel
 
 		while not hasattr(self.namespace, 'DATA_ARRAYS_PREALLOCATED'):
 			pass
+
 		self.eegstream = np.memmap(mapnames['eeg'], dtype='float', mode='r', shape=(array_shape))
-		self.markerstream = np.memmap(mapnames['markers'], dtype='float', mode='r', shape=(self.sampling_rate*60*1.2, 2))
-		self.photocellstream = np.memmap(mapnames['photocell'], dtype='float', mode='r', shape=(self.sampling_rate*60*1.2, 2))
+		self.markerstream = np.memmap(mapnames['markers'], dtype='float', mode='r', shape=(int(self.sampling_rate*60*1.2), 2))
+		self.photocellstream = np.memmap(mapnames['photocell'], dtype='float', mode='r', shape=(int(self.sampling_rate*60*1.2), 2))
 		
 		self.im=self.create_stream() # LSL stream for markers
 
@@ -115,7 +116,8 @@ class Classifier():
 			return slices
 
 		def filter_eeg(EEG, frequencies = [1,20]):
-			EEG[:,1:] = self.butter_filt(EEG[:,1:], frequencies, fs = self.sampling_rate) # filter
+			EEG = EEG.copy()
+			EEG[:,1:] = eeg.butter_filt(EEG[:,1:], frequencies, fs = self.sampling_rate) # filter
 			return EEG
 
 		EEG = filter_eeg(EEG)
@@ -124,7 +126,6 @@ class Classifier():
 		letter_slices = [[] for a in codes]
 		for i,code in enumerate(codes):
 			offs = MARKERS[MARKERS[:,1]==code][:,0]
-			# print offs
 			letters[i] = offs
 			for off in offs:
 				eegs = EEG[np.logical_and(  (EEG[:,0]*1000>off*1000), 
@@ -139,7 +140,9 @@ class Classifier():
 		'''Create feature vectors from letter slices.
 			In learn mode returns array of feature vectors and list of class labels.
 			In play mode  returns array of arrays of feature vectors for every stimuli '''
+		
 		shp = np.shape(letter_slices)
+		print shp
 		lttrs = range(shp[0])
 
 		if self.mode == 'PLAY':
@@ -147,6 +150,7 @@ class Classifier():
 			for letter in lttrs:
 				aims = letter_slices[letter,:,:,:]
 				shpa= np.shape(aims)
+				print shpa
 				# non_aims = letter_slices[[a for a in lttrs if a != letter]].reshape((shp[0]-1)*shp[1], shp[2], shp[3])
 				# shpn= np.shape(non_aims)
 				
@@ -156,6 +160,7 @@ class Classifier():
 					pass
 				# x = np.concatenate((aim_feature_vectors, non_aim_feature_vectors), axis = 0)
 				x = aim_feature_vectors
+				x = self.select_x_channels(x)
 				xes[letter] = x
 			xes = np.array(xes)
 			# xes = np.average(xes, axis = 1)
@@ -180,6 +185,19 @@ class Classifier():
 			self.letter_counter +=1
 			return x, y
 
+	def select_last_trial(self, a):
+		after_true = 0
+		for b in range(len(a))[::-1]:
+			if after_true > 1:
+				a[b] = False
+			if a[b]:
+				after_true = 1
+			else:
+				if after_true == 0:
+					pass
+				else:
+					after_true +=1
+		return a		
 
 	def mainloop(self):
 		''' Main cycle of Classifier class. 
@@ -206,12 +224,15 @@ class Classifier():
 				with warnings.catch_warnings(): # >< operators generate warnings on arrays with NaNs, like our EEG array
 					warnings.simplefilter("ignore")
 					if self.device == 'NVX52':
-						eeg, markers, events  = eeg.prepare_arrays(device = self.device, 
+						EEG, lsl_mark, events  = eeg.prepare_arrays(device = self.device, 
 											PHOTOCELL_ARRAY = self.photocellstream, 
 											MARKER_ARRAY = self.markerstream,
 											EEG_ARRAY = self.eegstream)
-						print markers
-						print markers[0,:] == trialstart
+
+						technical_markers = [777,888,999,888999,999888]
+						stim_markers =  [True if float(a) not in technical_markers  else False for a in lsl_mark[:,1]]						
+						stim_markers = np.array(self.select_last_trial(stim_markers))	
+						MARKERS = lsl_mark[stim_markers]
 
 					else:
 						EEG = self.eegstream[np.logical_and(self.eegstream[:,0]>trialstart, 
@@ -219,15 +240,15 @@ class Classifier():
 						MARKERS = self.markerstream[np.logical_and( self.markerstream[:,0]>trialstart,
 					 											self.markerstream[:,0]<trialend),:]
 				lnames = np.unique(MARKERS[:,1])
-				technical_markers = [777,888,999,888999,999888]
-				lnames = [a for a in lnames if a not in technical_markers]
 
+				lnames = [a for a in lnames if a not in technical_markers]
 				eeg_slices = self.prepare_letter_slices(lnames, EEG, MARKERS)
 				if self.mode == 'LEARN':
 					x,y = self.create_feature_vectors(eeg_slices)	
 					self.x_learn.append(x), self.y_learn.append(y)
 				elif self.mode == 'PLAY':
 					xes = self.create_feature_vectors(eeg_slices)	
+					print np.shape(xes)
 					self.classify(xes)
 					trialend, trialstart = 0,0
 
@@ -239,18 +260,11 @@ class Classifier():
 		y = np.array(self.y_learn).flatten()
 		return x, y
 
-	def butter_filt(self, data, cutoff_array, fs = 500, order=4):
-	    nyq = 0.5 * fs
-	    normal_cutoff = [a /nyq for a in cutoff_array]
-	    b, a = signal.butter(order, normal_cutoff, btype = 'bandpass', analog=False)
-	    data = signal.filtfilt(b, a, data, axis = 0)
-	    return data
-
 	def select_x_channels(self,x):
 	 	ch_length = np.shape(x)[1]/self.number_of_EEG_channels
 	 	indlist = sum([range(ch_length*chnl,ch_length*(chnl+1))  for chnl in self.classifier_channels], [])
 	 	x =  x[:, indlist]
-	 	print 'building classifier on '+ str(np.shape(x)) + ' shaped array'
+	 	# print 'building classifier on '+ str(np.shape(x)) + ' shaped array'
 		return x
 
 	def validate_learning(self,x):
@@ -262,8 +276,10 @@ class Classifier():
 			reshape them to lists of aim and non-aim epocs;	 plot averages for 8 channels '''
 		if self.number_of_EEG_channels <=8:
 			fig,axs = plt.subplots(nrows =3, ncols = 3)
-		elif self.number_of_EEG_channels >=9:
+		elif self.number_of_EEG_channels <=20:
 			fig,axs = plt.subplots(nrows =4, ncols = 5)
+		elif self.number_of_EEG_channels <=40:
+			fig,axs = plt.subplots(nrows =8, ncols = 5)
 		else :
 			self.say_aloud(word = 'Too many 5 to plot.')
 		
@@ -301,7 +317,7 @@ class Classifier():
 		print 'saving classifier...'
 		joblib.dump(self.CLASSIFIER, 'classifier_%i.cls' %(time.time()*1000)) 
 		print 'Starting online session'
-		self.namespace.StartOnlineSession = True
+		self.namespace.START_ONLINE_SESSION = True
 		# self.validate_learning(x)
 
 	def say_aloud(self, ans = False, index = False, word = False):
@@ -323,7 +339,10 @@ class Classifier():
 			sends index of command to record.py process'''
 		ans = []
 		probs = []
+		print np.shape(xes)
+
 		for vector in xes:
+			print np.shape(vector)
 			answer = self.CLASSIFIER.predict(vector)
 			prob = self.CLASSIFIER.predict_proba(vector)
 			probs.append(prob)

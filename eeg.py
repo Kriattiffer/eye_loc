@@ -136,10 +136,10 @@ class EEG_STREAM(object):
 			The array is mapped to disc for later use from classiffier process
 		'''
 		record_length = self.sampling_rate*60*top_exp_length*1.2
-		array_shape = (record_length, number_of_channels+1)
+		array_shape = (int(record_length), number_of_channels+1)
 		print 'Creating array with dimensions %s...' %str(array_shape) 
 		print array_shape
-		a = np.memmap(mmapname, dtype=dtype, mode='w+', shape=(array_shape))
+		a = np.memmap(mmapname, dtype=dtype, mode='w+', shape=array_shape)
 		# a = np.zeros(array_shape, dtype = 'float')
 		a[:,0:self.ie.channel_count+1] = np.NAN
 		print '... done'
@@ -158,54 +158,14 @@ class EEG_STREAM(object):
 	
 	def save_data(self, sessiontype = '', startingpoint = False):
 		print '\nsaving experiment data from %s session...\n' %sessiontype
-		data_arrays = self.prepare_arrays(startingpoint = startingpoint,
+		data_arrays = prepare_arrays(startingpoint = startingpoint,
 											device = self.device, 
 											PHOTOCELL_ARRAY = self.PHOTOCELL_ARRAY, 
 											MARKER_ARRAY = self.MARKER_ARRAY,
 											EEG_ARRAY = self.EEG_ARRAY	)
 		filenames = ['_data%s.txt'%sessiontype, '_markers%s.txt'%sessiontype, '_events%s.txt'%sessiontype]
 		for n, array in enumerate(data_arrays):
-			np.savetxt(filenames[n], array, fmt= '%.4f')
-
-	def prepare_arrays(self, 
-						PHOTOCELL_ARRAY, MARKER_ARRAY, EEG_ARRAY,
-	 					device,
-	 					startingpoint = False ):
-
-		def merge_arrays(eventdata, markerdata):
-			cc = 0
-			for n, a in enumerate(markerdata): # vectorize?
-				if a[1] not in [777, 888, 888999, 999888, 999]: # exclude technical markers that are not synchronized with win.flip()
-					markerdata[n,0] = eventdata[cc,0]
-					cc+=1
-				else:
-					# markerdata[n,0] = -1
-					pass
-			return markerdata
-
-		if startingpoint:
-			print np.logical_and((MARKER_ARRAY[:,0]>startingpoint), 
-																(np.isnan(MARKER_ARRAY[:,1]) != True))
-			with warnings.catch_warnings(): # >< operators generate warnings on arrays with NaNs, like our EEG array
-				warnings.simplefilter("ignore")
-				eegdata = EEG_ARRAY[np.logical_and((EEG_ARRAY[:,0]>startingpoint), 
-																		(np.isnan(EEG_ARRAY[:,1]) != True)),:]  # delete all unused lines from data matrix AND use data only after learning has ended
-				markerdata = MARKER_ARRAY[np.logical_and((MARKER_ARRAY[:,0]>startingpoint), 
-																(np.isnan(MARKER_ARRAY[:,1]) != True)),:]
-		else:
-			eegdata = EEG_ARRAY[np.isnan(EEG_ARRAY[:,1]) != True,:]  # delete all unused lines from data matrix
-			markerdata = MARKER_ARRAY[np.isnan(MARKER_ARRAY[:,1]) != True,:]
-			
-		if device == 'NVX52':
-			eventdata = PHOTOCELL_ARRAY[np.isnan(PHOTOCELL_ARRAY[:,1]) != True,:]
-			markerdata = merge_arrays(eventdata, markerdata)
-		
-			return eegdata, markerdata, eventdata
-		else:
-			return eegdata, markerdata
-
-
-	
+			np.savetxt(filenames[n], array, fmt= '%.4f')	
 
 	def record(self):
 		''' 
@@ -262,8 +222,49 @@ class EEG_STREAM(object):
 						print '\n...data saved.\n Goodbye.\n'
 						sys.exit()
 
+def prepare_arrays(PHOTOCELL_ARRAY, MARKER_ARRAY, EEG_ARRAY,
+ 					device,
+ 					startingpoint = False ):
 
+	def merge_arrays(eventdata, markerdata):
+		cc = 0
+		markerdata = markerdata.copy()
+		for n, a in enumerate(markerdata): # vectorize?
+			if a[1] not in [777, 888, 888999, 999888, 999]: # exclude technical markers that are not synchronized with win.flip()
+				markerdata[n,0] = eventdata[cc,0]
+				cc+=1
+			else:
+				# markerdata[n,0] = -1
+				pass
+		return markerdata
 
+	if startingpoint:
+		print np.logical_and((MARKER_ARRAY[:,0]>startingpoint), 
+															(np.isnan(MARKER_ARRAY[:,1]) != True))
+		with warnings.catch_warnings(): # >< operators generate warnings on arrays with NaNs, like our EEG array
+			warnings.simplefilter("ignore")
+			eegdata = EEG_ARRAY[np.logical_and((EEG_ARRAY[:,0]>startingpoint), 
+																	(np.isnan(EEG_ARRAY[:,1]) != True)),:]  # delete all unused lines from data matrix AND use data only after learning has ended
+			markerdata = MARKER_ARRAY[np.logical_and((MARKER_ARRAY[:,0]>startingpoint), 
+															(np.isnan(MARKER_ARRAY[:,1]) != True)),:]
+	else:
+		eegdata = EEG_ARRAY[np.isnan(EEG_ARRAY[:,1]) != True,:]  # delete all unused lines from data matrix
+		markerdata = MARKER_ARRAY[np.isnan(MARKER_ARRAY[:,1]) != True,:]
+		
+	if device == 'NVX52':
+		eventdata = PHOTOCELL_ARRAY[np.isnan(PHOTOCELL_ARRAY[:,1]) != True,:]
+		markerdata = merge_arrays(eventdata, markerdata)
+	
+		return eegdata, markerdata, eventdata
+	else:
+		return eegdata, markerdata
+
+def butter_filt(data, cutoff_array, fs = 500, order=4):
+    nyq = 0.5 * fs
+    normal_cutoff = [a /nyq for a in cutoff_array]
+    b, a = signal.butter(order, normal_cutoff, btype = 'bandpass', analog=False)
+    data = signal.filtfilt(b, a, data, axis = 0)
+    return data
 
 os.chdir(os.path.dirname(__file__)) 	# VLC PATH BUG ==> submit?
 

@@ -14,20 +14,21 @@ import present, eyetracker, eeg, classify
 config = './letters_table_5x5.bcicfg'
 config = './hexospell.bcicfg'
 
-screen = 0
+screen = 1
 refresh_rate = 60
 top_exp_length = 60
 device = 'NVX52'
 mapnames = {'eeg':'./eegdata.mmap', 
 			'markers':'./markers.mmap',
 			'photocell': './photocell.mmap'}
-classifier_channels	 = range(8)
-savedclass = False
+classifier_channels	 = range(2)
+savedclass = 'classifier_1485453671708.cls'
+# savedclass = False
+
 
 
 def stims(namespace, ISI_FRAMES = 4, stim_duration_FRAMES = 4, repeats = 4):
 	'''Create stimulation window'''
-	print 'gdxjhgchgcvjhgc'
 	ENV = present.ENVIRONMENT(config = config, namespace = namespace)
 	
 	ENV.Fullscreen = True 	
@@ -35,7 +36,7 @@ def stims(namespace, ISI_FRAMES = 4, stim_duration_FRAMES = 4, repeats = 4):
 	ENV.shrink_matrix = 1.2
 
 	ENV.build_gui(monitor = present.mymon, 
-				  screen = screen, stimuli_number = 3)
+				  screen = screen, stimuli_number = 6)
 	if savedclass:
 		ENV.LEARN = False
 		print 'Using saved classifier from %s' % savedclass
@@ -47,12 +48,16 @@ def stims(namespace, ISI_FRAMES = 4, stim_duration_FRAMES = 4, repeats = 4):
 
 	sys.stdout = open(str(os.getpid()) + ".out", "w") #MAGIC
 
-def eyetrack(namespace):
+def eyetrack(namespace, fake_et):
 	'''Manage Red eyetracker'''
-	RED = eyetracker.Eyetracker(namespace = namespace, debug = True,
-								number_of_points = 2, screen = screen)
-	RED.main()
-	sys.stdout = open(str(os.getpid()) + ".out", "w") #MAGIC
+	if fake_et:
+		namespace.EYETRACK_CALIB_SUCCESS = True
+		return
+	else:
+		RED = eyetracker.Eyetracker(namespace = namespace, debug = True,
+									number_of_points = 2, screen = screen)
+		RED.main()
+		sys.stdout = open(str(os.getpid()) + ".out", "w") #MAGIC
 
 def rec(namespace):
 	''' Create stream class and start recording'''
@@ -78,6 +83,8 @@ if __name__ == '__main__':
 	parser.add_argument('-i', action='store', dest='isi', type=int, default = 4)
 	parser.add_argument('-f', action='store', dest='sdf', type=int, default = 4)
 	parser.add_argument('-r', action='store', dest='rpt', type=int, default = 4)
+	parser.add_argument('--noeyetrack', action='store', dest='fake_et', type=bool, default = False)
+
 	args = vars(parser.parse_args())
 
 	mgr = multiprocessing.Manager()
@@ -85,7 +92,7 @@ if __name__ == '__main__':
 
 	pgui = multiprocessing.Process(target=stims, args = (namespace,), kwargs = {'ISI_FRAMES':args['isi'], 'repeats':args['rpt'], 
 																				'stim_duration_FRAMES':args['sdf'] })
-	peye = multiprocessing.Process(target=eyetrack, args = (namespace,))
+	peye = multiprocessing.Process(target=eyetrack, args = (namespace, args['fake_et'],))
 	prec = multiprocessing.Process(target=rec, args = (namespace,))
 	pcls = multiprocessing.Process(target=class_, args = (namespace,))
 

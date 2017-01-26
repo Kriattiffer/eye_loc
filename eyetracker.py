@@ -118,7 +118,7 @@ class Eyetracker():
     def main(self):
         self.connect_to_iView()
         self.calibrate()
-        self.validate()
+        # self.validate()
         self.namespace.EYETRACK_CALIB_SUCCESS = True
         self.experiment_loop()
 
