@@ -10,11 +10,10 @@
 import multiprocessing, sys, os, time, argparse
 import present, eyetracker, eeg, classify
 
-
 config = './letters_table_5x5.bcicfg'
-config = './hexospell.bcicfg'
+# config = './hexospell.bcicfg'
 
-screen = 1
+screen = 0
 refresh_rate = 60
 top_exp_length = 60
 device = 'NVX52'
@@ -22,9 +21,8 @@ mapnames = {'eeg':'./eegdata.mmap',
 			'markers':'./markers.mmap',
 			'photocell': './photocell.mmap'}
 classifier_channels	 = range(2)
-savedclass = 'classifier_1485453671708.cls'
-# savedclass = False
-
+savedclass = False
+savedclass = 'classifier_1486054094820.cls'
 
 
 def stims(namespace, ISI_FRAMES = 4, stim_duration_FRAMES = 4, repeats = 4):
@@ -36,7 +34,7 @@ def stims(namespace, ISI_FRAMES = 4, stim_duration_FRAMES = 4, repeats = 4):
 	ENV.shrink_matrix = 1.2
 
 	ENV.build_gui(monitor = present.mymon, 
-				  screen = screen, stimuli_number = 6)
+				  screen = screen, stimuli_number = False)
 	if savedclass:
 		ENV.LEARN = False
 		print 'Using saved classifier from %s' % savedclass
@@ -45,7 +43,6 @@ def stims(namespace, ISI_FRAMES = 4, stim_duration_FRAMES = 4, repeats = 4):
 
 	ENV.run_exp(stim_duration_FRAMES = stim_duration_FRAMES, ISI_FRAMES = ISI_FRAMES, 
 				repetitions = repeats, waitforS = False)
-
 	sys.stdout = open(str(os.getpid()) + ".out", "w") #MAGIC
 
 def eyetrack(namespace, fake_et):
@@ -55,7 +52,7 @@ def eyetrack(namespace, fake_et):
 		return
 	else:
 		RED = eyetracker.Eyetracker(namespace = namespace, debug = True,
-									number_of_points = 2, screen = screen)
+									number_of_points = 9, screen = screen)
 		RED.main()
 		sys.stdout = open(str(os.getpid()) + ".out", "w") #MAGIC
 
@@ -105,7 +102,6 @@ if __name__ == '__main__':
 	prec.start()
 	print 'startig classifier'
 	pcls.start()
-
 
 
 	prec.join()

@@ -85,7 +85,7 @@ class Eyetracker():
             Results are displayed in iViewX'''
         self.res = iViewXAPI.iV_Validate()
         print "iV_Validate " + str(self.res)
-        # self.res = iViewXAPI.iV_ShowAccuracyMonitor()
+        self.res = iViewXAPI.iV_ShowAccuracyMonitor()
         # self.res = iViewXAPI.iV_ShowEyeImageMonitor()
         # raw_input('press any key to continue')
 
@@ -118,7 +118,7 @@ class Eyetracker():
     def main(self):
         self.connect_to_iView()
         self.calibrate()
-        # self.validate()
+        self.validate()
         self.namespace.EYETRACK_CALIB_SUCCESS = True
         self.experiment_loop()
 

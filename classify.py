@@ -25,7 +25,14 @@ class Classifier():
 		self.channel_names = range(self.number_of_EEG_channels)
 		
 		self.SPEAK =True
-		self.stimuli_names = ast.literal_eval(open(config).read())['names']
+		config = ast.literal_eval(open(config).read())
+		self.stimuli_names = config['names']
+		if 'rows' in config.keys():
+			self.rows = config['rows']
+			self.columns = config['columns']
+			self.ROWCOL = True
+		else:
+			self.ROWCOL = False
 		
 		if classifier_channels == []:
 			self.classifier_channels = range(self.number_of_EEG_channels)
@@ -142,7 +149,6 @@ class Classifier():
 			In play mode  returns array of arrays of feature vectors for every stimuli '''
 		
 		shp = np.shape(letter_slices)
-		print shp
 		lttrs = range(shp[0])
 
 		if self.mode == 'PLAY':
@@ -150,7 +156,6 @@ class Classifier():
 			for letter in lttrs:
 				aims = letter_slices[letter,:,:,:]
 				shpa= np.shape(aims)
-				print shpa
 				# non_aims = letter_slices[[a for a in lttrs if a != letter]].reshape((shp[0]-1)*shp[1], shp[2], shp[3])
 				# shpn= np.shape(non_aims)
 				
@@ -167,10 +172,15 @@ class Classifier():
 			return xes
 
 		elif self.mode == 'LEARN':
-			aim_let = int(self.learn_aims[self.letter_counter])
-			# print aim_let
-			aims = letter_slices[lttrs[aim_let],:,:,:]
-			non_aims = letter_slices[[a for a in lttrs if a != aim_let]].reshape((shp[0]-1)*shp[1], shp[2], shp[3])
+			aim_let = [int(self.learn_aims[self.letter_counter])]
+			
+			if self.ROWCOL:
+				aim_let_row = [n for n,c in enumerate(self.rows) if aim_let[0] in c]
+				aim_let_col = [n+len(self.rows) for n,c in enumerate(self.columns) if aim_let[0] in c]
+				aim_let = aim_let_row + aim_let_col
+
+			aims = np.vstack([letter_slices[lttrs[a],:,:,:] for a in aim_let])
+			non_aims = np.vstack([letter_slices[[a for a in lttrs if a != b]].reshape((shp[0]-1)*shp[1], shp[2], shp[3]) for b in aim_let])
 			
 			shpa= np.shape(aims)
 			shpn= np.shape(non_aims)
@@ -248,7 +258,6 @@ class Classifier():
 					self.x_learn.append(x), self.y_learn.append(y)
 				elif self.mode == 'PLAY':
 					xes = self.create_feature_vectors(eeg_slices)	
-					print np.shape(xes)
 					self.classify(xes)
 					trialend, trialstart = 0,0
 
@@ -313,7 +322,7 @@ class Classifier():
 		print '\nBuilding classifier for ...'
 		self.CLASSIFIER=LDA(solver = 'lsqr', shrinkage='auto')
 		self.CLASSIFIER.fit(self.select_x_channels(x), y)
-		self.plot_ep(x,y)
+		# self.plot_ep(x,y)
 		print 'saving classifier...'
 		joblib.dump(self.CLASSIFIER, 'classifier_%i.cls' %(time.time()*1000)) 
 		print 'Starting online session'
@@ -330,7 +339,7 @@ class Classifier():
 		try:
 			subprocess.call(['C:\\Program Files (x86)\\eSpeak\\command_line\\espeak.exe', word])
 		except WindowsError:
-			print 'install eSpeak for speech synthesys'
+			print 'install eSpeak for speech synthesis'
 
 	def classify(self, xes):
 		''' Function gets list of lists of feature vectors for all stimuli; 
@@ -342,7 +351,6 @@ class Classifier():
 		print np.shape(xes)
 
 		for vector in xes:
-			print np.shape(vector)
 			answer = self.CLASSIFIER.predict(vector)
 			prob = self.CLASSIFIER.predict_proba(vector)
 			probs.append(prob)
@@ -350,10 +358,25 @@ class Classifier():
 		probs = [np.prod(prob, axis = 0) for prob in probs] 
 		probs =  [b[1]/(b[0]+ b[1]) for b in probs] # estimate probability of each stimuli being aim
 
+		if self.ROWCOL:
+			probs_matrix = []
+			ans_matrix = []
+
+			gr_1_probs = probs[0:len(self.rows)]
+			gr_2_probs = probs[len(self.columns):]
+
+			gr_1_ans = ans[0:len(self.rows)]
+			gr_2_ans = ans[len(self.columns):]
+			for n1, a in enumerate(gr_1_probs):
+				for  n2, b in  enumerate(gr_2_probs):
+					probs_matrix.append(gr_1_probs[n1]*gr_2_probs[n2])
+					ans_matrix.append(gr_1_ans[n1]*gr_2_ans[n2])
+			probs = probs_matrix
+			ans = ans_matrix
+
+
 		# np.set_printoptions(precision=5)
 		np.set_printoptions(suppress=True)
-		print probs
-		print ans
 		index = max(xrange(len(probs)), key = lambda x: probs[x]) # index of max-scored stimuli		
 		# index = max(xrange(len(ans)), key = lambda x: ans[x]) # index of max-scored stimuli		
 		if self.SPEAK ==True:
