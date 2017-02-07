@@ -10,7 +10,7 @@
 import multiprocessing, sys, os, time, argparse
 import present, eyetracker, eeg, classify
 
-config = './letters_table_5x5.bcicfg'
+config = './letters_table_6x6.bcicfg'
 # config = './hexospell.bcicfg'
 
 screen = 0
@@ -22,7 +22,7 @@ mapnames = {'eeg':'./eegdata.mmap',
 			'photocell': './photocell.mmap'}
 classifier_channels	 = range(2)
 savedclass = False
-savedclass = 'classifier_1486054094820.cls'
+# savedclass = 'classifier_1486054094820.cls'
 
 
 def stims(namespace, ISI_FRAMES = 4, stim_duration_FRAMES = 4, repeats = 4):

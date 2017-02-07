@@ -306,10 +306,10 @@ if __name__ == '__main__':
 	print 'done imports'
 	os.chdir(os.path.dirname(__file__)) 	# VLC PATH BUG ==> submit?
 
-	ENV = ENVIRONMENT(namespace =emptyclass, DEMO = True, config = 'hexospell.bcicfg')
+	ENV = ENVIRONMENT(namespace =emptyclass, DEMO = True, config = 'letters_table_6x6.bcicfg')
 	ENV.Fullscreen = True
 	ENV.refresh_rate = 60
 	ENV.shrink_matrix = 1.2
-	ENV.build_gui(monitor = mymon, screen = 0, stimuli_number = 6)
+	ENV.build_gui(monitor = mymon, screen = 1)#, stimuli_number = 25)
 
 	ENV.run_exp(stim_duration_FRAMES = 3, ISI_FRAMES = 6, repetitions = 10, waitforS = False)
