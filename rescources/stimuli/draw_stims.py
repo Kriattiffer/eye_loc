@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*- 
+
 from PIL import Image, ImageTk, ImageDraw, ImageFont
 background = '#593315'
 kelly_colors_hex = ['#FFB300', '#803E75', '#FF6800', '#A6BDD7', '#C10020', '#CEA262',
@@ -27,7 +29,7 @@ Vivid Reddish Orange
 Dark Olive Green'''
 
 stimlist = [str(a) for a in range(32)]
-stimlist = [a for a in 'abcdefghijklmonpqrstuvwxyz']
+stimlist = [a for a in u'abcdefghijklmonpqrstuvwxyz1234567890!@#$%^&*()_+=-~[]{};:\"\|?.,/<>½¾¿±®©§£¥¢÷µ¬']
 # stim_colors = ['red']*len(stimlist)
 stim_colors = ['#505050']*len(stimlist)
 
@@ -39,6 +41,8 @@ stim_colors = ['#505050']*len(stimlist)
 imgsize = (200,200)
 textpos = 50, -30
 fnt = ImageFont.truetype("arial.ttf", 200)
+fnt = ImageFont.truetype("Inconsolata-Regular.ttf", 200)
+
 
 ################################################################
 

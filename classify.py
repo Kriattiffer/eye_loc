@@ -28,11 +28,11 @@ class Classifier():
 		config = ast.literal_eval(open(config).read())
 		self.stimuli_names = config['names']
 		if 'rows' in config.keys():
-			self.rows = config['rows']
-			self.columns = config['columns']
-			self.ROWCOL = True
+			self.stim_group_1 = config['rows']
+			self.stim_group_2 = config['columns']
+			self.GROUPED = True
 		else:
-			self.ROWCOL = False
+			self.GROUPED = False
 		
 		if classifier_channels == []:
 			self.classifier_channels = range(self.number_of_EEG_channels)
@@ -174,10 +174,10 @@ class Classifier():
 		elif self.mode == 'LEARN':
 			aim_let = [int(self.learn_aims[self.letter_counter])]
 			
-			if self.ROWCOL:
-				aim_let_row = [n for n,c in enumerate(self.rows) if aim_let[0] in c]
-				aim_let_col = [n+len(self.rows) for n,c in enumerate(self.columns) if aim_let[0] in c]
-				aim_let = aim_let_row + aim_let_col
+			if self.GROUPED:
+				aim_let_gr_1 = [n for n,c in enumerate(self.stim_group_1) if aim_let[0] in c]
+				aim_let_gr_2 = [n+len(self.stim_group_1) for n,c in enumerate(self.stim_group_2) if aim_let[0] in c]
+				aim_let = aim_let_gr_1 + aim_let_gr_2
 
 			aims = np.vstack([letter_slices[lttrs[a],:,:,:] for a in aim_let])
 			non_aims = np.vstack([letter_slices[[a for a in lttrs if a != b]].reshape((shp[0]-1)*shp[1], shp[2], shp[3]) for b in aim_let])
@@ -333,7 +333,8 @@ class Classifier():
 		if not word:
 			word = self.stimuli_names[index] # name of max-scored stimuli
 			if ans[index] == 0:
-				word = 'No command selected'
+				pass
+				# word = 'No command selected'
 		else:
 			pass
 		try:
@@ -348,7 +349,6 @@ class Classifier():
 			sends index of command to record.py process'''
 		ans = []
 		probs = []
-		print np.shape(xes)
 
 		for vector in xes:
 			answer = self.CLASSIFIER.predict(vector)
@@ -357,22 +357,24 @@ class Classifier():
 			ans.append(sum(answer))
 		probs = [np.prod(prob, axis = 0) for prob in probs] 
 		probs =  [b[1]/(b[0]+ b[1]) for b in probs] # estimate probability of each stimuli being aim
-
-		if self.ROWCOL:
+		if self.GROUPED:
 			probs_matrix = []
 			ans_matrix = []
 
-			gr_1_probs = probs[0:len(self.rows)]
-			gr_2_probs = probs[len(self.columns):]
+			gr_1_probs = probs[0:len(self.stim_group_1)]
+			gr_2_probs = probs[len(self.stim_group_1):]
+			# print gr_1_probs
+			# print gr_2_probs
 
-			gr_1_ans = ans[0:len(self.rows)]
-			gr_2_ans = ans[len(self.columns):]
+			gr_1_ans = ans[0:len(self.stim_group_1)]
+			gr_2_ans = ans[len(self.stim_group_1):]
 			for n1, a in enumerate(gr_1_probs):
 				for  n2, b in  enumerate(gr_2_probs):
 					probs_matrix.append(gr_1_probs[n1]*gr_2_probs[n2])
 					ans_matrix.append(gr_1_ans[n1]*gr_2_ans[n2])
 			probs = probs_matrix
 			ans = ans_matrix
+			print probs
 
 
 		# np.set_printoptions(precision=5)
@@ -381,9 +383,7 @@ class Classifier():
 		# index = max(xrange(len(ans)), key = lambda x: ans[x]) # index of max-scored stimuli		
 		if self.SPEAK ==True:
 			self.say_aloud(ans, index)
-		# self.sock.send('answer is %i' %index) # start presentation for next aim stimuli
 		return index
-		# probs for every run  - if wouldnt work otherwise
 	
 	def test_offline(self):
 		pass

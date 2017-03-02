@@ -13,25 +13,25 @@ import present, eyetracker, eeg, classify
 config = './letters_table_6x6.bcicfg'
 # config = './hexospell.bcicfg'
 
-screen = 0
+screen = 1
 refresh_rate = 60
 top_exp_length = 60
 device = 'NVX52'
 mapnames = {'eeg':'./eegdata.mmap', 
 			'markers':'./markers.mmap',
 			'photocell': './photocell.mmap'}
-classifier_channels	 = range(2)
+classifier_channels	 = range(8)
 savedclass = False
-# savedclass = 'classifier_1486054094820.cls'
+savedclass = 'classifier_1487784737389.cls'
 
 
-def stims(namespace, ISI_FRAMES = 4, stim_duration_FRAMES = 4, repeats = 4):
+def stims(namespace, ISI_FRAMES = 4, stim_duration_FRAMES = 4, repeats = 10):
 	'''Create stimulation window'''
 	ENV = present.ENVIRONMENT(config = config, namespace = namespace)
 	
 	ENV.Fullscreen = True 	
 	ENV.refresh_rate = refresh_rate
-	ENV.shrink_matrix = 1.2
+	ENV.shrink_matrix = 1.3
 
 	ENV.build_gui(monitor = present.mymon, 
 				  screen = screen, stimuli_number = False)
@@ -52,7 +52,7 @@ def eyetrack(namespace, fake_et):
 		return
 	else:
 		RED = eyetracker.Eyetracker(namespace = namespace, debug = True,
-									number_of_points = 9, screen = screen)
+									number_of_points = 9, screen = screen-1)
 		RED.main()
 		sys.stdout = open(str(os.getpid()) + ".out", "w") #MAGIC
 

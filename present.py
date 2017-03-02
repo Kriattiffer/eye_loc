@@ -7,7 +7,7 @@
 # Date: December 20, 2016
 # ----------------------------------------------------------------------------
 
-import os, sys, random, ast, math, time, socket
+import os, sys, random, ast, math, time, itertools
 from psychopy import visual, core, event, monitors
 from pylsl import StreamInfo, StreamOutlet
 import numpy as np
@@ -32,24 +32,14 @@ class ENVIRONMENT():
 		self.number_of_inputs = 12
 
 		self.shrink_matrix = 1
-		
-		# if DEMO == True:
-		# 	self.LSL, self.conn = self.fake_lsl_and_conn()
-
-		# elif DEMO == False:
-		# 	self.LSL = create_lsl_outlet() # create outlet for sync with NIC
-		# 	core.wait(1)		
-		# 	socket.socket.bind(('localhost', 22828))
-		# 	socket.socket.listen(1)
-		# 	self.conn, addr = socket.socket.accept()	
-		# 	print 'Classifier socket connected'
-		
-	
 
 		try:
 			self.config =  ast.literal_eval(open(config).read())
 			if 'rows' in self.config.keys():
 				self.ROW_COLS = True
+				self.stim_group_1 = self.config['rows'] 
+				self.stim_group_2 = self.config['columns'] 
+
 			else:
 				self.ROW_COLS = False
 		except Exception, e:
@@ -268,6 +258,7 @@ class ENVIRONMENT():
 		''' receives IDs of stimuli, and number of repetitions, returns stimuli sequence without repeats'''
 		
 		def create_deduplicated_list(numbers, repetitions):
+			print numbers
 			seq = numbers*repetitions
 			random.shuffle(seq) # generate random list
 			dd_l =  [seq[a] for a in range(len(seq)) if seq[a] != seq[a-1]] #find duplicates
@@ -275,20 +266,33 @@ class ENVIRONMENT():
 			for a in dup_l: # deduplicate
 				p = [b for b in range(len(dd_l)) if dd_l[b] !=a and dd_l[b-1] !=a]
 				dd_l.insert(p[1],a)
+			print dd_l
 			return dd_l
-
+			
+		def evenly_spaced(*iterables):
+		    """
+			    >>> evenly_spaced(range(10), list('abc'))
+			    [0, 1, 'a', 2, 3, 4, 'b', 5, 6, 7, 'c', 8, 9]
+			    borrowed from http://stackoverflow.com/questions/19293481
+		    """
+		    return [item[1] for item in
+		            sorted(itertools.chain.from_iterable(
+		            zip(itertools.count(start=1.0 / (len(seq) + 1), 
+		                         step=1.0 / (len(seq) + 1)), seq)
+		            for seq in iterables))]
 		if self.ROW_COLS:
-			self.stim_ind = self.config['rows'] + self.config['columns']
-			dd_l_rows = create_deduplicated_list(range(int(math.sqrt(len(numbers)))), repetitions)
-			dd_l_cols = create_deduplicated_list(range(int(math.sqrt(len(numbers)))), repetitions)
-			dd_l_cols = [a + int(math.sqrt(len(numbers))) for a in dd_l_cols]
-			dd_l = [[self.stim_ind[a], self.stim_ind[b]] for a,b in zip(dd_l_rows, dd_l_cols)]
-			dd_l = [a for b in dd_l for a in b]
+			self.stim_ind = self.stim_group_1 + self.stim_group_2
 
+			dd_l_gr1 = create_deduplicated_list(range(len(self.stim_group_1)), repetitions)
+			dd_l_gr2 = create_deduplicated_list(range(len(self.stim_group_2)), repetitions)
+			dd_l_gr2 = [a + len(self.stim_group_1) for a in dd_l_gr2]
+
+			# dd_l = [[self.stim_ind[a], self.stim_ind[b]] for a,b in zip(dd_l_gr1, dd_l_gr2)]
+			dd_l = evenly_spaced(dd_l_gr1, dd_l_gr2)
+			dd_l = [[self.stim_group_1+self.stim_group_2][0][a] for a in dd_l]
 		else:
 			self.stim_ind = numbers
 			dd_l = create_deduplicated_list(numbers, repetitions)
-
 		return dd_l
 
 def create_lsl_outlet(name = 'CycleStart', DeviceMac = '00:07:80:64:EB:46'):
