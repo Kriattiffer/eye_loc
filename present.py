@@ -34,7 +34,7 @@ class ENVIRONMENT():
 		self.shrink_matrix = 1
 
 		try:
-			self.config =  ast.literal_eval(open(config).read())
+			self.config =  load_config(config)
 			if 'rows' in self.config.keys():
 				self.ROW_COLS = True
 				self.stim_group_1 = self.config['rows'] 
@@ -49,7 +49,6 @@ class ENVIRONMENT():
 
 		self.LSL = create_lsl_outlet() # create outlet for sync
 		core.wait(0.1)		
-
 
 	def build_gui(self, stimuli_number = False, 
 					monitor = mymon, fix_size = 1, screen  = 1):
@@ -151,10 +150,10 @@ class ENVIRONMENT():
 
 		if self.LEARN == True:
 			aims = [int(a)-1 for a in np.genfromtxt('aims_learn.txt')]
-			print aims
+			# print aims
 		elif self.LEARN == False:
 			aims = [int(a) -1 for a in np.genfromtxt('aims_play.txt')]
-			print aims
+			# print aims
 
 		for letter, aim in enumerate(aims):
 			self.LSL.push_sample([777]) # input of new letter
@@ -212,7 +211,13 @@ class ENVIRONMENT():
 			self.exit_()
 
 	def highlight_cell(self, cell, displaytime = 2):
-			''' Highlight single cell for displaytime seconds, then wait one second before continuing'''
+			'''
+				Change cell state to active for some time.
+				Arguments:
+				cell	int	cell ID
+				displaytime int	time to keep cell active
+					default: 2
+			'''
 			self.stimlist[1][cell].autoDraw = True # indicate aim stimuli
 			self.stimlist[0][cell].autoDraw = False 
 			self.win.flip()
@@ -255,10 +260,11 @@ class ENVIRONMENT():
 		sys.exit()
 
 	def generate_superseq(self, numbers =[0,1,2,3], repetitions = 10):
-		''' receives IDs of stimuli, and number of repetitions, returns stimuli sequence without repeats'''
+		''' 
+			receives IDs of stimuli, and number of repetitions, returns stimuli sequence without repeats
+		'''
 		
 		def create_deduplicated_list(numbers, repetitions):
-			print numbers
 			seq = numbers*repetitions
 			random.shuffle(seq) # generate random list
 			dd_l =  [seq[a] for a in range(len(seq)) if seq[a] != seq[a-1]] #find duplicates
@@ -296,10 +302,29 @@ class ENVIRONMENT():
 		return dd_l
 
 def create_lsl_outlet(name = 'CycleStart', DeviceMac = '00:07:80:64:EB:46'):
-	''' Create outlet for sending markers. Returns outlet object. Use by Outlet.push_sample([MARKER_INT])'''
+	''' 
+		Create outlet for sending markers. Returns outlet object. Use by Outlet.push_sample([MARKER_INT])
+	'''
 	info = StreamInfo(name,'Markers',1,0,'int32', DeviceMac)
 	outlet =StreamOutlet(info)
 	return outlet
+
+def load_config(config):
+	'''
+		Support for configs as executable .py files (needed for resier generation of
+		high-dimensional matrices).
+		Valid configuration file must either be eval-able Pyrthon dictionary or 
+		myst be python file, containing dictionary named 'config'
+		Arguments:
+		config	str	path to configuration file
+	'''
+	if config[-3:] == '.py':
+		import imp
+		cfgpy = imp.load_source('test', config)
+
+		return cfgpy.config
+	else:
+		return ast.literal_eval(open(config).read())
 
 class emptyclass():
 	"""Fake namespace-like class for testing purposes"""
@@ -310,7 +335,9 @@ if __name__ == '__main__':
 	print 'done imports'
 	os.chdir(os.path.dirname(__file__)) 	# VLC PATH BUG ==> submit?
 
-	ENV = ENVIRONMENT(namespace =emptyclass, DEMO = True, config = 'letters_table_6x6.bcicfg')
+	ENV = ENVIRONMENT(namespace =emptyclass, DEMO = True, config = 'letters_table_8x9.bcicfg.py')
+	# ENV = ENVIRONMENT(namespace =emptyclass, DEMO = True, config = 'letters_table_6x6.bcicfg')
+
 	ENV.Fullscreen = True
 	ENV.refresh_rate = 60
 	ENV.shrink_matrix = 1.2

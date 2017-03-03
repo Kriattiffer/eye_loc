@@ -7,6 +7,7 @@ from pylsl import StreamInlet, StreamOutlet, StreamInfo, resolve_stream
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.externals import joblib
 import eeg 
+import present
 import subprocess
 from multiprocessing import Process
 
@@ -25,7 +26,7 @@ class Classifier():
 		self.channel_names = range(self.number_of_EEG_channels)
 		
 		self.SPEAK =True
-		config = ast.literal_eval(open(config).read())
+		config = present.load_config(config)
 		self.stimuli_names = config['names']
 		if 'rows' in config.keys():
 			self.stim_group_1 = config['rows']

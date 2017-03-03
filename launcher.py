@@ -10,7 +10,7 @@
 import multiprocessing, sys, os, time, argparse
 import present, eyetracker, eeg, classify
 
-config = './letters_table_6x6.bcicfg'
+config = './letters_table_8x9.bcicfg.py'
 # config = './hexospell.bcicfg'
 
 screen = 1
