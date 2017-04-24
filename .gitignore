@@ -99,3 +99,9 @@ _*
 desktop.ini
 Thumbs.db
 aims_play.txt
+# Data folders
+rescources/stimuli/faces_stims/
+rescources/stimuli/letters_table_black_faces_non_consp/
+rescources/stimuli/letters_table_black_faces/
+data/
+experimental_data/

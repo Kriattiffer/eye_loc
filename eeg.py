@@ -10,7 +10,8 @@
 from pylsl import StreamInlet, resolve_stream
 from scipy import signal
 import numpy as np
-import sys, os, warnings, time
+import present
+import sys, os, warnings, time, datetime
 
 class EEG_STREAM(object):
 	""" 
@@ -31,7 +32,7 @@ class EEG_STREAM(object):
 
 		self.ie, self.im, self.ip =  self.create_streams()
 
-		
+		print 'EEG stream contains {} channels'.format(self.ie.channel_count)
 		self.EEG_ARRAY = self.create_array(mmapname=mapnames['eeg'], top_exp_length = top_exp_length, number_of_channels = self.ie.channel_count)
 		self.MARKER_ARRAY = self.create_array(mmapname=mapnames['markers'], top_exp_length = 1, number_of_channels = 1)
 		self.PHOTOCELL_ARRAY = self.create_array(mmapname=mapnames['photocell'], top_exp_length = 1, number_of_channels = 1)
@@ -163,9 +164,11 @@ class EEG_STREAM(object):
 											PHOTOCELL_ARRAY = self.PHOTOCELL_ARRAY, 
 											MARKER_ARRAY = self.MARKER_ARRAY,
 											EEG_ARRAY = self.EEG_ARRAY	)
-		filenames = ['_data%s.txt'%sessiontype, '_markers%s.txt'%sessiontype, '_events%s.txt'%sessiontype]
+		regname = os.path.basename(self.namespace.config).split('.')[0]
+		filenames = [a + '_%s_%s_%s'%(regname, sessiontype, present.timestring()) for a in ['_data', '_events', '_photocell']]
 		for n, array in enumerate(data_arrays):
-			np.savetxt(filenames[n], array, fmt= '%.4f')	
+			# np.savetxt(os.path.join(self.namespace.data_folder, filenames[n]) + '.txt', array, fmt= '%.8f')	
+			np.save(os.path.join(self.namespace.data_folder, filenames[n]), array)
 
 	def record(self):
 		''' 
@@ -226,12 +229,12 @@ def prepare_arrays(PHOTOCELL_ARRAY, MARKER_ARRAY, EEG_ARRAY,
  					device,
  					startingpoint = False ):
 
-	def merge_arrays(eventdata, markerdata):
+	def merge_arrays(photodata, markerdata):
 		cc = 0
 		markerdata = markerdata.copy()
 		for n, a in enumerate(markerdata): # vectorize?
 			if a[1] not in [777, 888, 888999, 999888, 999]: # exclude technical markers that are not synchronized with win.flip()
-				markerdata[n,0] = eventdata[cc,0]
+				markerdata[n,0] = photodata[cc,0]
 				cc+=1
 			else:
 				# markerdata[n,0] = -1
@@ -239,23 +242,24 @@ def prepare_arrays(PHOTOCELL_ARRAY, MARKER_ARRAY, EEG_ARRAY,
 		return markerdata
 
 	if startingpoint:
-		print np.logical_and((MARKER_ARRAY[:,0]>startingpoint), 
-															(np.isnan(MARKER_ARRAY[:,1]) != True))
+		# print np.logical_and((MARKER_ARRAY[:,0]>startingpoint), (np.isnan(MARKER_ARRAY[:,1]) != True))
 		with warnings.catch_warnings(): # >< operators generate warnings on arrays with NaNs, like our EEG array
 			warnings.simplefilter("ignore")
 			eegdata = EEG_ARRAY[np.logical_and((EEG_ARRAY[:,0]>startingpoint), 
 																	(np.isnan(EEG_ARRAY[:,1]) != True)),:]  # delete all unused lines from data matrix AND use data only after learning has ended
-			markerdata = MARKER_ARRAY[np.logical_and((MARKER_ARRAY[:,0]>startingpoint), 
-															(np.isnan(MARKER_ARRAY[:,1]) != True)),:]
+			# markerdata = MARKER_ARRAY[np.logical_and((MARKER_ARRAY[:,0]>startingpoint), 
+			# 												(np.isnan(MARKER_ARRAY[:,1]) != True)),:]
+			markerdata = MARKER_ARRAY[np.isnan(MARKER_ARRAY[:,1]) != True,:]
+
 	else:
 		eegdata = EEG_ARRAY[np.isnan(EEG_ARRAY[:,1]) != True,:]  # delete all unused lines from data matrix
 		markerdata = MARKER_ARRAY[np.isnan(MARKER_ARRAY[:,1]) != True,:]
 		
 	if device == 'NVX52':
-		eventdata = PHOTOCELL_ARRAY[np.isnan(PHOTOCELL_ARRAY[:,1]) != True,:]
-		markerdata = merge_arrays(eventdata, markerdata)
+		photodata = PHOTOCELL_ARRAY[np.isnan(PHOTOCELL_ARRAY[:,1]) != True,:]
+		markerdata = merge_arrays(photodata, markerdata)
 	
-		return eegdata, markerdata, eventdata
+		return eegdata, markerdata, photodata
 	else:
 		return eegdata, markerdata
 

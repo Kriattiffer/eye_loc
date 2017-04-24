@@ -10,9 +10,8 @@
 import multiprocessing, sys, os, time, argparse
 import present, eyetracker, eeg, classify
 
-config = './letters_table_8x9.bcicfg.py'
-# config = './hexospell.bcicfg'
-
+# config = './configs/letters_table_8x9.bcicfg.py'
+data_folder = './experimental_data'
 screen = 1
 refresh_rate = 60
 top_exp_length = 60
@@ -20,19 +19,21 @@ device = 'NVX52'
 mapnames = {'eeg':'./eegdata.mmap', 
 			'markers':'./markers.mmap',
 			'photocell': './photocell.mmap'}
-classifier_channels	 = range(8)
-savedclass = False
-savedclass = 'classifier_1487784737389.cls'
+# classifier_channels	 = range(8)
+# classifier_channels = [a-1 for a in [21, 19, 17, 16, 15, 14, 13, 10]]
+classifier_channels = [a for a in range(8)]
 
+
+savedclass = False
+# savedclass = './experimental_data/classifier_1492183246771.cls'
 
 def stims(namespace, ISI_FRAMES = 4, stim_duration_FRAMES = 4, repeats = 10):
 	'''Create stimulation window'''
-	ENV = present.ENVIRONMENT(config = config, namespace = namespace)
+	ENV = present.ENVIRONMENT(namespace = namespace)
 	
 	ENV.Fullscreen = True 	
 	ENV.refresh_rate = refresh_rate
-	ENV.shrink_matrix = 1.3
-
+	ENV.shrink_matrix = 1.32
 	ENV.build_gui(monitor = present.mymon, 
 				  screen = screen, stimuli_number = False)
 	if savedclass:
@@ -45,14 +46,14 @@ def stims(namespace, ISI_FRAMES = 4, stim_duration_FRAMES = 4, repeats = 10):
 				repetitions = repeats, waitforS = False)
 	sys.stdout = open(str(os.getpid()) + ".out", "w") #MAGIC
 
-def eyetrack(namespace, fake_et):
+def eyetrack(namespace, fake_et = False):
 	'''Manage Red eyetracker'''
 	if fake_et:
 		namespace.EYETRACK_CALIB_SUCCESS = True
 		return
 	else:
 		RED = eyetracker.Eyetracker(namespace = namespace, debug = True,
-									number_of_points = 9, screen = screen-1)
+									number_of_points = 9, screen = screen)
 		RED.main()
 		sys.stdout = open(str(os.getpid()) + ".out", "w") #MAGIC
 
@@ -68,8 +69,7 @@ def class_(namespace):
 									mapnames = mapnames, online = True,
 									top_exp_length = top_exp_length, 
 									classifier_channels = classifier_channels, 
-									saved_classifier = savedclass,
-									config = config)
+									saved_classifier = savedclass)
 	CLSF.mainloop()
 	sys.stdout = open(str(os.getpid()) + ".out", "w")
 
@@ -77,21 +77,29 @@ def class_(namespace):
 if __name__ == '__main__':
 
 	parser = argparse.ArgumentParser()
-	parser.add_argument('-i', action='store', dest='isi', type=int, default = 4)
-	parser.add_argument('-f', action='store', dest='sdf', type=int, default = 4)
-	parser.add_argument('-r', action='store', dest='rpt', type=int, default = 4)
-	parser.add_argument('--noeyetrack', action='store', dest='fake_et', type=bool, default = False)
+	parser.add_argument('-i', action='store', dest='isi', type=int, default = 9)
+	parser.add_argument('-d', action='store', dest='sdf', type=int, default = 3)
+	parser.add_argument('-r', action='store', dest='rpt', type=int, default = 10)
+	parser.add_argument('--noeyetrack', action='store_true', dest='fake_et')
+
+	parser.add_argument('--config', action='store', dest='config', type=str, 
+						default = './configs/letters.bcicfg.py')
+						# default = './configs/hexospell.bcicfg')
 
 	args = vars(parser.parse_args())
 
 	mgr = multiprocessing.Manager()
 	namespace = mgr.Namespace()
+	namespace.data_folder = data_folder
+	namespace.config = args['config']
+	print os.path.basename(namespace.config).split('.')[0]
+
 
 	pgui = multiprocessing.Process(target=stims, args = (namespace,), kwargs = {'ISI_FRAMES':args['isi'], 'repeats':args['rpt'], 
 																				'stim_duration_FRAMES':args['sdf'] })
-	peye = multiprocessing.Process(target=eyetrack, args = (namespace, args['fake_et'],))
+	peye = multiprocessing.Process(target=eyetrack, args = (namespace,), kwargs = {'fake_et':args['fake_et'] })
 	prec = multiprocessing.Process(target=rec, args = (namespace,))
-	pcls = multiprocessing.Process(target=class_, args = (namespace,))
+	pcls = multiprocessing.Process(target=class_, args = (namespace,)) 
 
 
 	print 'startig GUI...'
@@ -102,7 +110,6 @@ if __name__ == '__main__':
 	prec.start()
 	print 'startig classifier'
 	pcls.start()
-
 
 	prec.join()
 	peye.join()

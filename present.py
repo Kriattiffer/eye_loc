@@ -7,7 +7,7 @@
 # Date: December 20, 2016
 # ----------------------------------------------------------------------------
 
-import os, sys, random, ast, math, time, itertools
+import os, sys, random, ast, math, time, itertools, datetime
 from psychopy import visual, core, event, monitors
 from pylsl import StreamInfo, StreamOutlet
 import numpy as np
@@ -18,23 +18,13 @@ mymon.setSizePix([1920, 1080])
 
 class ENVIRONMENT():
 	""" class for visual stimulation during the experiment """
-	def __init__(self, namespace, DEMO = False, config = './letters_table_5x5.bcicfg'):
+	def __init__(self, namespace, DEMO = False):
 		self.namespace = namespace
 
-		self.background = '#868686'
-		self.refresh_rate = 120
-
-		self.Fullscreen = False
-		self.plot_intervals = False
-		self.window_size = (1920, 1080)
-		self.LEARN = True
-
-		self.number_of_inputs = 12
-
-		self.shrink_matrix = 1
-
+		self.DEMO = DEMO
+		#load configuration file
 		try:
-			self.config =  load_config(config)
+			self.config =  load_config(namespace.config)
 			if 'rows' in self.config.keys():
 				self.ROW_COLS = True
 				self.stim_group_1 = self.config['rows'] 
@@ -47,16 +37,29 @@ class ENVIRONMENT():
 			print e
 			self.exit_()
 
+		self.background = self.config['background']
+		self.refresh_rate = 120
+
+		self.Fullscreen = False
+		self.plot_intervals = False
+		self.window_size = self.config['window_size']
+		self.LEARN = True
+
+		self.number_of_inputs = self.config['number_of_inputs']
+
+		self.shrink_matrix = 1
+		
 		self.LSL = create_lsl_outlet() # create outlet for sync
 		core.wait(0.1)		
 
 	def build_gui(self, stimuli_number = False, 
 					monitor = mymon, fix_size = 1, screen  = 1):
-		''' function for creating visual enviroment. Input: various parameters of stimuli, all optional'''
+		'''
+			function for creating visual enviroment. Input: various parameters of stimuli, all optional
+		'''
 		if not stimuli_number:
 			stimuli_number = len(self.config['positions'])
 		self.stimuli_indices = range(stimuli_number)
-		
 		active_stims = []
 		non_active_stims = []
 		# Create window
@@ -71,7 +74,7 @@ class ENVIRONMENT():
 
 		self.mouse = event.Mouse(win = self.win)
 
-		self.win.setRecordFrameIntervals(True)
+		# self.win.setRecordFrameIntervals(True)
 
 		# self.refresh_rate =  math.ceil(self.win.monitorFramePeriod**-1)
 		self.frame_time = self.win.monitorFramePeriod*1000
@@ -95,6 +98,8 @@ class ENVIRONMENT():
 		active_stims  = active_stims
 		non_active_stims  = non_active_stims
 
+		self.textarea = visual.TextStim(self.win, text = u'', rgb = 'red', pos = (0,0.97), alignVert = 'top', alignHoriz = 'center')
+		self.textarea.autoDraw = True
 		self.photocell = visual.Rect(self.win, width=0.1, height=0.2, fillColor = 'black', lineWidth = 0)
 		self.photocell.pos = [0.95,0.9]
 		self.photocell.autoDraw = True
@@ -113,15 +118,18 @@ class ENVIRONMENT():
 
 	
 	def sendTrigger(self, stim):
-		'''This function is called with callOnFlip which
-		 "call the function just after the flip, before psychopy does a bit 
-		 of housecleaning. ", according to some dude on the internets'''
+		'''
+			This function is called with callOnFlip which
+			"call the function just after the flip, before psychopy does a bit 
+			of housecleaning. ", according to some dude on the internets
+		'''
 
 		self.LSL.push_sample([self.stim_ind.index(stim)],  pushthrough = True) # push marker immdiately after first bit of the sequence
 	
 	def wait_for_event(self, key = 'LMB', wait = True, timer = 1):
-		''' Wait for all process flags, to ansure that the experiment dosen't start too early.
-			Then wait for  
+		''' 
+			Wait for all process flags, to ansure that the experiment dosen't start too early.
+			Then wait for  keypress, if specified.
 		'''
 		while not hasattr(self.namespace,'EYETRACK_CALIB_SUCCESS') or \
 			  not hasattr(self.namespace,'EEG_RECORDING_STARTED'):
@@ -135,41 +143,49 @@ class ENVIRONMENT():
 					pass
 			core.wait(timer)
 
-
-
-
 	def run_exp(self, stim_duration_FRAMES = 3, ISI_FRAMES = 9, 
-				repetitions =  10, waitforS=True, stimuli_number = 6):
-		'''Eye tracking experiment. Stimuli duration and inter-stimuli interval should be supplied as number of frames.'''
+				repetitions =  10, waitforS=True, waitforLMB = False, stimuli_number = 6):
+		'''
+			Run BCI-eye tracking experiment. Stimuli duration and inter-stimuli interval should be supplied as number of frames.
+		'''
 		cycle_ms = (stim_duration_FRAMES + ISI_FRAMES)*1000.0/self.refresh_rate
 		print 'Stimuli cycle is %.2f ms' % cycle_ms
 		seq = [1]*stim_duration_FRAMES + [0]*ISI_FRAMES
-
-		aims = [int(a) for a in np.genfromtxt('aims_play.txt')]
 		self.wait_for_event(key = 's', wait = waitforS)
 
 		if self.LEARN == True:
-			aims = [int(a)-1 for a in np.genfromtxt('aims_learn.txt')]
-			# print aims
-		elif self.LEARN == False:
-			aims = [int(a) -1 for a in np.genfromtxt('aims_play.txt')]
-			# print aims
+			# aims = [int(a)-1 for a in np.genfromtxt('aims_learn.txt')]
+			aims = self.config['aims_learn']
+			print 'aims: {}'.format(aims)
 
+			# shutil.copyfile('aims_learn.txt', './experimental_data/aims_learn.txt')
+
+			print 'Ready to start learning session, press s to begin'
+			while 's' not in event.getKeys(): # wait for S key to start
+				pass
+
+		elif self.LEARN == False:
+			# aims = [int(a) -1 for a in np.genfromtxt('aims_play.txt')]
+			aims = self.config['aims_play']
+			print 'aims: {}'.format(aims)
+			# shutil.copyfile('aims_play.txt', './experimental_data/aims_play.txt')
+
+		self.wait_for_event(key = 's', wait = waitforS)
 		for letter, aim in enumerate(aims):
 			self.LSL.push_sample([777]) # input of new letter
 			self.superseq = self.generate_superseq(numbers = self.stimuli_indices, repetitions = repetitions)
 
-			self.wait_for_event(key = 'LMB', wait = True)
+			self.wait_for_event(key = 'LMB', wait = waitforLMB)
 
-			self.highlight_cell(aim) # indicate aim_stimulus
+			self.highlight_cell(aim, displaytime = 3) # indicate aim_stimulus
 
 			if 'escape' in event.getKeys():
 				self.exit_()
 			
-
 			self.win.flip() # just in case
 
 			for a in self.superseq:
+				# print a, self.stim_ind.index(a), aim, aim in a
 				# first bit of sequence and marker
 				self.win.callOnFlip(self.sendTrigger, stim = a)
 				self.draw_screen(a,0)
@@ -178,15 +194,17 @@ class ENVIRONMENT():
 				for b in seq[1:]:
 					self.draw_screen(a,b)
 						
-
 			core.wait(2) # wait one second after last blink so the last analysis epoch is not trimmed
 			self.LSL.push_sample([888]) # end of the trial
 			core.wait(0.5)			
 			if self.LEARN == False:
-				pass
-				# while 'answer' not in self.conn.recv(1024):
-					# pass	
-				print 'next letter'
+				if not self.DEMO:
+					while not self.namespace.FRESH_ANSWER:
+						pass
+					self.textarea.text = self.namespace.ANSWER_TEXT
+					self.namespace.FRESH_ANSWER = False
+					self.win.flip()
+					print 'next letter'
 		
 		if self.LEARN == True:
 			core.wait(1)
@@ -218,6 +236,7 @@ class ENVIRONMENT():
 				displaytime int	time to keep cell active
 					default: 2
 			'''
+			print cell#, len(self.stimlist[1])
 			self.stimlist[1][cell].autoDraw = True # indicate aim stimuli
 			self.stimlist[0][cell].autoDraw = False 
 			self.win.flip()
@@ -230,6 +249,13 @@ class ENVIRONMENT():
 			core.wait(1)
 
 	def draw_screen(self, a, b):
+		'''
+			Redraw screen according to current frame of the stimuli sequence
+			Arguments:
+			a	list	stimuli sequence
+			b	int	current bit of stimuli sequence
+
+		'''
 		if self.ROW_COLS: # in row-col mode, stimlist is connstructed from lists, representing rows and columns
 			for rc  in a:
 				self.stimlist[b][rc].autoDraw = True
@@ -246,7 +272,12 @@ class ENVIRONMENT():
 		self.win.flip()
 
 	def exit_(self):
-		''' exit and kill dependent processes'''		
+		'''
+			Exit and kill dependent processes
+		'''
+		regname = os.path.basename(self.namespace.config).split('.')[0]
+		with open('./experimental_data/answers_{}_{}.txt'.format(regname, timestring()), 'w') as f:
+			f.write(self.namespace.ANSWER_TEXT)
 		self.LSL.push_sample([999])
 		print 'exiting GUI'
 		core.wait(2)
@@ -261,7 +292,8 @@ class ENVIRONMENT():
 
 	def generate_superseq(self, numbers =[0,1,2,3], repetitions = 10):
 		''' 
-			receives IDs of stimuli, and number of repetitions, returns stimuli sequence without repeats
+			Receives IDs of stimuli, and number of repetitions, returns stimuli sequence without repeats
+
 		'''
 		
 		def create_deduplicated_list(numbers, repetitions):
@@ -272,7 +304,7 @@ class ENVIRONMENT():
 			for a in dup_l: # deduplicate
 				p = [b for b in range(len(dd_l)) if dd_l[b] !=a and dd_l[b-1] !=a]
 				dd_l.insert(p[1],a)
-			print dd_l
+			# print dd_l
 			return dd_l
 			
 		def evenly_spaced(*iterables):
@@ -320,27 +352,37 @@ def load_config(config):
 	'''
 	if config[-3:] == '.py':
 		import imp
-		cfgpy = imp.load_source('test', config)
-
-		return cfgpy.config
+		cfg_py = imp.load_source('test', config)
+		return cfg_py.config
 	else:
 		return ast.literal_eval(open(config).read())
 
+def timestring():
+	'''
+		Return currrent time in string format
+	'''
+	return datetime.datetime.fromtimestamp(time.time()).strftime('%H_%M__%d_%m')
+
 class emptyclass():
-	"""Fake namespace-like class for testing purposes"""
+	"""
+		Fake namespace-like class for testing purposes
+	"""
 	EYETRACK_CALIB_SUCCESS = True
 	EEG_RECORDING_STARTED = True
-		
+	config = './configs/faces.bcicfg.py'
+
 if __name__ == '__main__':
 	print 'done imports'
 	os.chdir(os.path.dirname(__file__)) 	# VLC PATH BUG ==> submit?
 
-	ENV = ENVIRONMENT(namespace =emptyclass, DEMO = True, config = 'letters_table_8x9.bcicfg.py')
-	# ENV = ENVIRONMENT(namespace =emptyclass, DEMO = True, config = 'letters_table_6x6.bcicfg')
+	ENV = ENVIRONMENT(namespace =emptyclass, DEMO = True)
+	# ENV = ENVIRONMENT(namespace =emptyclass, DEMO = True, config = './configs/hexospell.bcicfg')
+
+	# ENV = ENVIRONMENT(namespace =emptyclass, DEMO = True, config = './configs/letters_table_6x6.bcicfg')
 
 	ENV.Fullscreen = True
 	ENV.refresh_rate = 60
-	ENV.shrink_matrix = 1.2
+	ENV.shrink_matrix = 1.1
 	ENV.build_gui(monitor = mymon, screen = 1)#, stimuli_number = 25)
 
-	ENV.run_exp(stim_duration_FRAMES = 3, ISI_FRAMES = 6, repetitions = 10, waitforS = False)
+	ENV.run_exp(stim_duration_FRAMES = 9, ISI_FRAMES = 3, repetitions = 10, waitforS = False)

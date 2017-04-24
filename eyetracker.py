@@ -9,7 +9,8 @@
 
 from iViewXAPI import  *  #iViewX library
 from ctypes import *
-import time, sys
+import time, sys, ast, os
+import present
 from pylsl import StreamInlet, resolve_stream
 
 
@@ -85,7 +86,7 @@ class Eyetracker():
             Results are displayed in iViewX'''
         self.res = iViewXAPI.iV_Validate()
         print "iV_Validate " + str(self.res)
-        self.res = iViewXAPI.iV_ShowAccuracyMonitor()
+        # self.res = iViewXAPI.iV_ShowAccuracyMonitor()
         # self.res = iViewXAPI.iV_ShowEyeImageMonitor()
         # raw_input('press any key to continue')
 
@@ -97,7 +98,12 @@ class Eyetracker():
 
     def send_marker_to_iViewX(self, marker):
         ''' Sends marker to the eyetracker. Marker becomes iViewX event. '''
-        res = iViewXAPI.iV_SendImageMessage(marker)
+        marker = ast.literal_eval(marker)
+        if marker == [888]:
+            print marker
+            res = iViewXAPI.iV_SendImageMessage(str(marker[0]) + '.jpg')
+        else:
+            res = iViewXAPI.iV_SendImageMessage(str(marker[0]))
         # if str(self.res) !='1':
             # print "iV_SendImageMessage " + str(self.res)
     
@@ -130,7 +136,8 @@ class Eyetracker():
         self.res = iViewXAPI.iV_StopRecording()
 
         user = '1'
-        filename = r'C:\Users\iView X\Documents\SMI_BCI_Experiments/' + user + str(time.time())
+        regname = os.path.basename(self.namespace.config).split('.')[0] + '_'
+        filename = r'C:\Users\iView X\Documents\SMI_BCI_Experiments/' + regname + present.timestring()
         self.res = iViewXAPI.iV_SaveData(filename, 'description', user, 1) # filename, description, user, owerwrite
         if self.res == 1:
             print 'Eyatracking data saved fo %s.idf' % filename

@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*- 
 
 from PIL import Image, ImageTk, ImageDraw, ImageFont
-background = '#593315'
+# background = '#593315'
+background = 'black'
 kelly_colors_hex = ['#FFB300', '#803E75', '#FF6800', '#A6BDD7', '#C10020', '#CEA262',
 					'#817066', '#007D34', '#F6768E', '#00538A', '#FF7A5C', '#53377A', 
 					'#FF8E00', '#B32851', '#F4C800', '#7F180D', '#93AA00', '#593315', 
@@ -29,7 +30,7 @@ Vivid Reddish Orange
 Dark Olive Green'''
 
 stimlist = [str(a) for a in range(32)]
-stimlist = [a for a in u'abcdefghijklmonpqrstuvwxyz1234567890!@#$%^&*()_+=-~[]{};:\"\|?.,/<>½¾¿±®©§£¥¢÷µ¬']
+stimlist = [a for a in u'abcdefghijklmonpqrstuvwxyz_1234567890!@#$%^&*()+=-~[]{};:\"\|?.,/<>½¾¿±®©§£¥¢÷µ¬']
 # stim_colors = ['red']*len(stimlist)
 stim_colors = ['#505050']*len(stimlist)
 
@@ -40,7 +41,7 @@ stim_colors = ['#505050']*len(stimlist)
 
 imgsize = (200,200)
 textpos = 50, -30
-fnt = ImageFont.truetype("arial.ttf", 200)
+# fnt = ImageFont.truetype("arial.ttf", 200)
 fnt = ImageFont.truetype("Inconsolata-Regular.ttf", 200)
 
 
@@ -54,9 +55,9 @@ def draw_text(stimlist):
 		draw.text(textpos, stim, stim_colors[n], font  =fnt)
 		stims_na.append(b)
 
-		b1  = Image.new('RGBA', imgsize, '#CEA262')
+		b1  = Image.new('RGBA', imgsize, 'black')# '#CEA262')
 		draw = ImageDraw.Draw(b1)
-		draw.text(textpos, stim, "black", font  =fnt)
+		draw.text(textpos, stim, "white", font  =fnt)
 		draw = ImageDraw.Draw(b1)
 		stims_a.append(b1)
 

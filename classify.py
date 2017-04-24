@@ -15,9 +15,10 @@ class Classifier():
 	"""docstring for Classifier"""
 	def __init__(self, namespace, mapnames, device = 'NVX52', online = False,
 				top_exp_length = 60, classifier_channels = [],
-				downsample_div = 10, saved_classifier = False, config = './circles.bcicfg'):
+				downsample_div = 10, saved_classifier = False):
 		self.namespace = namespace
-
+		self.namespace.FRESH_ANSWER = False
+		self.namespace.ANSWER_TEXT = ''
 		self.LEARN_BY_DELTAS = False
 		self.device = device
 		self.sampling_rate = self.get_stream_params(srate = True)
@@ -26,7 +27,9 @@ class Classifier():
 		self.channel_names = range(self.number_of_EEG_channels)
 		
 		self.SPEAK =True
-		config = present.load_config(config)
+		config = present.load_config(namespace.config)
+		self.learn_aims = config['aims_learn']
+
 		self.stimuli_names = config['names']
 		if 'rows' in config.keys():
 			self.stim_group_1 = config['rows']
@@ -51,7 +54,6 @@ class Classifier():
 			self.CLASSIFIER = joblib.load(saved_classifier) 
 		
 		self.letter_counter = 0 # this is to know what stimuli is aim now for learning_stage
-		self.learn_aims = np.genfromtxt('aims_learn.txt') -1
 		
 		record_length = self.sampling_rate*60*top_exp_length*1.2
 		array_shape = (int(record_length), self.number_of_EEG_channels+1)  # include timestamp channel
@@ -66,7 +68,9 @@ class Classifier():
 		self.im=self.create_stream() # LSL stream for markers
 
 	def create_stream(self, stream_name_markers = 'CycleStart', recursion_meter = 0, max_recursion_depth = 3):
-		''' Opens LSL stream for markers, If error, tries to reconnect several times'''
+		''' 
+			Opens LSL stream for markers, If error, tries to reconnect several times
+		'''
 		
 		if recursion_meter == 0:
 			recursion_meter +=1
@@ -96,6 +100,14 @@ class Classifier():
 		return inlet_markers
 
 	def get_stream_params(self, channels = False, srate = False):
+		'''
+			Get number of channels or sapling rate from LSL stream metadata.
+			Arguments:
+			channels	bool get number of channels
+				Default: False
+			srate	bool	get sampling rate
+				Default: False
+		'''
 
 		if self.device == 'Enobio':
 			stream_type_eeg = 'EEG'
@@ -115,8 +127,10 @@ class Classifier():
 
 
 	def prepare_letter_slices(self, codes, EEG, MARKERS):
-		'''Make array of epocs corresponding to single stimuli
-			from raw EEG and markers '''
+		'''
+			Make array of epocs corresponding to single stimuli
+			from raw EEG and markers
+		'''
 
 		def downsample(slices):
 			'''Take every Nth EEG sample '''
@@ -145,9 +159,11 @@ class Classifier():
 		return letter_slices
 
 	def create_feature_vectors(self, letter_slices):
-		'''Create feature vectors from letter slices.
+		'''
+			Create feature vectors from letter slices.
 			In learn mode returns array of feature vectors and list of class labels.
-			In play mode  returns array of arrays of feature vectors for every stimuli '''
+			In play mode  returns array of arrays of feature vectors for every stimuli
+		'''
 		
 		shp = np.shape(letter_slices)
 		lttrs = range(shp[0])
@@ -264,7 +280,9 @@ class Classifier():
 
 
 	def xyprepare(self):
-		''' reshape matrix of feature vectors to fit classifier'''
+		''' 
+			Reshape matrix of feature vectors to fit classifier
+		'''
 		shp = np.shape(self.x_learn)
 		x = np.array(self.x_learn).reshape(shp[0]*shp[1], shp[2])
 		y = np.array(self.y_learn).flatten()
@@ -282,8 +300,9 @@ class Classifier():
 			pass
 
 	def plot_ep(self, x, y):
-		''' get arrays of feature vectors and class labels;
-			reshape them to lists of aim and non-aim epocs;	 plot averages for 8 channels '''
+		''' Get arrays of feature vectors and class labels;
+			reshape them to lists of aim and non-aim epocs;	 plot averages for 8 channels.
+		'''
 		if self.number_of_EEG_channels <=8:
 			fig,axs = plt.subplots(nrows =3, ncols = 3)
 		elif self.number_of_EEG_channels <=20:
@@ -325,7 +344,8 @@ class Classifier():
 		self.CLASSIFIER.fit(self.select_x_channels(x), y)
 		# self.plot_ep(x,y)
 		print 'saving classifier...'
-		joblib.dump(self.CLASSIFIER, 'classifier_%i.cls' %(time.time()*1000)) 
+		regname = os.path.basename(self.namespace.config).split('.')[0]
+		joblib.dump(self.CLASSIFIER, os.path.join(self.namespace.data_folder,'{}_{}.cls'.format(regname, present.timestring()) )) 
 		print 'Starting online session'
 		self.namespace.START_ONLINE_SESSION = True
 		# self.validate_learning(x)
@@ -344,10 +364,13 @@ class Classifier():
 			print 'install eSpeak for speech synthesis'
 
 	def classify(self, xes):
-		''' Function gets list of lists of feature vectors for all stimuli; 
-		predicts classes for all vectors; returns index of the stimuli that scored maximum;
-		says the name of corresponding command aloud using eSpeak;
-			sends index of command to record.py process'''
+		''' Function receives feature vectors; 
+			predicts classes for all vectors; returns index of the stimuli that scored maximum;
+			says the name of corresponding command aloud using eSpeak;
+			sends index of command to record.py process
+			Arguments:
+				xes	list	List of lists of feature vectors for all stimuli
+		'''
 		ans = []
 		probs = []
 
@@ -364,26 +387,25 @@ class Classifier():
 
 			gr_1_probs = probs[0:len(self.stim_group_1)]
 			gr_2_probs = probs[len(self.stim_group_1):]
-			# print gr_1_probs
-			# print gr_2_probs
+			np.set_printoptions(precision=3)
 
 			gr_1_ans = ans[0:len(self.stim_group_1)]
 			gr_2_ans = ans[len(self.stim_group_1):]
-			for n1, a in enumerate(gr_1_probs):
-				for  n2, b in  enumerate(gr_2_probs):
+			for n2, a in enumerate(gr_2_probs):
+				for  n1, b in  enumerate(gr_1_probs):
 					probs_matrix.append(gr_1_probs[n1]*gr_2_probs[n2])
 					ans_matrix.append(gr_1_ans[n1]*gr_2_ans[n2])
 			probs = probs_matrix
 			ans = ans_matrix
-			print probs
 
-
-		# np.set_printoptions(precision=5)
 		np.set_printoptions(suppress=True)
 		index = max(xrange(len(probs)), key = lambda x: probs[x]) # index of max-scored stimuli		
 		# index = max(xrange(len(ans)), key = lambda x: ans[x]) # index of max-scored stimuli		
 		if self.SPEAK ==True:
 			self.say_aloud(ans, index)
+		self.namespace.ANSWER_TEXT =self.namespace.ANSWER_TEXT + self.stimuli_names[index]
+		self.namespace.FRESH_ANSWER = True
+		print index
 		return index
 	
 	def test_offline(self):

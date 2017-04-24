@@ -88,8 +88,8 @@ def from_LSL(channel, mend = 888, mstart = 777):
 
 if __name__ == '__main__':
 	
-	datafile = "../_data_play.txt"
-	markersfile = "../_markers_play.txt"
+	datafile = "../experimental_data/_data_play.txt"
+	markersfile = "../experimental_data/_markers_play.txt"
 
 	slices = from_LSL(1)
 
