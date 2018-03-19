@@ -196,6 +196,8 @@ class Analysis():
 	"""
 	def __init__(self, data_folder, interface_type, session = 'play'):		
 		self.sfreq = 500
+		self.l_freq = 0.1
+		self.h_freq = 35
 		self.plot_colors =  {'Faces': 'red', 'Facesnoise':'green', 'Letters':'black', 'Noise':'blue', 'aim':'#e41a1c', 'non_aim':'#377eb8'}
 
 		names = [a for a in u'abcdefghijklmonpqrstuvwxyz_1234567890!@#$%^&*()+=-~[]{};:\"\|?.,/<>½¾¿±®©§£¥¢÷µ¬']
@@ -219,7 +221,7 @@ class Analysis():
 		self.total_data = []
 		self.tota_evoked = []
 
-	def read_data_files(self, reg_folder, reject_bad_files = True, read_fif_if_possible = True, save_intermediate = True):
+	def read_data_files(self, reg_folder, reject_bad_files = True, read_fif_if_possible = True):
 		"""
 			read .txt, .npy or .fif raw files, optionally savr preprocessed EEG
 
@@ -229,7 +231,6 @@ class Analysis():
 		        					Reasons may include broken electrodes, 
 		        					exessive amounts of alpha rhytm or high ampltude low-frequency noise
 		        read_fif_if_possible (bool): if True, read .fif files (if present) instead of .txt or .npy
-		        save_intermediate (bool): if True, save raw eeg files with events to .fif files
 
 
 		    Returns:
@@ -255,11 +256,13 @@ class Analysis():
 				self.events = np.load(os.path.join(reg_folder, 'selfevents.npy'))
 				eegfile = os.path.join(reg_folder, [a for a in files if 'data' in a and '.raw.fif' in a][0])
 				print eegfile
+				self.eeg_filename = eegfile
 				self.raw = mne.io.read_raw_fif(eegfile)
 				self.raw.load_data()
 				return True
 
 		eegfile = os.path.join(reg_folder, [a for a in files if 'data' in a and self.extension in a][0])
+		self.eeg_filename = eegfile
 
 		if reject_bad_files:
 			if os.path.basename(eegfile) in bad_files:  # alpha
@@ -288,17 +291,20 @@ class Analysis():
 		self.raw.add_events(self.events, stim_channel = 'stim')
 		montage = mne.channels.read_montage(kind = 'easycap-M1')
 		self.raw.set_montage(montage)
-		if save_intermediate:
-			self.raw.save(eegfile+ '.raw.fif')
-			self.events.dump(os.path.join(reg_folder, 'selfevents.npy'))
+			
 		return True
 
 	def raw_filter(self): 
 		'''
 			Filter EEG in self.raw variable
 		'''
-		self.raw.filter(l_freq = None, h_freq = 35, picks = range(1,(len(self.channels)-1)), fir_design = 'firwin2')
-		self.raw.filter(l_freq = 0.1, h_freq = None, picks = range(1,(len(self.channels)-1)), fir_design = 'firwin2')
+		self.raw.filter(l_freq = None, h_freq = self.h_freq, picks = range(1,(len(self.channels)-1)), fir_design = 'firwin2')
+		self.raw.filter(l_freq = self.l_freq, h_freq = None, picks = range(1,(len(self.channels)-1)), fir_design = 'firwin2')
+
+	def save_intermediate(self, reg_folder):
+		extension = '' if self.eeg_filename.split('.')[-1] == 'fif' else '.raw.fif'
+		self.raw.save(self.eeg_filename+ extension, overwrite=True)
+		self.events.dump(os.path.join(reg_folder, 'selfevents.npy'))
 
 	def reject_eog_contaminated_events(self, plot_eog = False):
 		"""
@@ -477,15 +483,17 @@ class Analysis():
 
 
 		# print self.evoked_aim_saved_for_grand_average['Noise'].data
-		
 	
-	def user_analysis(self, user):
+	def save_peak_data():
+		pass
+	
+	def user_analysis(self, user, plot = True, save_intermediate = True):
 		"""
 			Main function for one user
 
 		    Args:
 		        user (str/int): user folder name
-
+		  		save_intermediate (bool): if True, save raw eeg files with events and applied filters to .fif files
 		"""
 
 		data = {'Faces': [], 'Facesnoise':[], 'Letters':[], 'Noise':[]}
@@ -496,31 +504,55 @@ class Analysis():
 		user_data = {}
 
 		for reg in self.folders.keys():
-			isfilevalid = self.read_data_files(os.path.join(user_folder, self.folders[reg]), reject_bad_files = False)
-			# continue
+			isfilevalid = self.read_data_files(os.path.join(user_folder, self.folders[reg]), reject_bad_files = False, read_fif_if_possible = True)
 			if isfilevalid:
-				self.raw_filter()
+				# self.raw.plot(block = True)
+				if np.isclose(self.raw.info['highpass'], self.l_freq) and np.isclose(self.raw.info['lowpass'], self.h_freq): #default values for unfiltered data
+					pass
+				else:
+					print 'filtering'
+					self.raw_filter()
+					if save_intermediate:
+						print 'saving'
+						self.save_intermediate(reg_folder = os.path.join(user_folder, self.folders[reg]))
+
+
 				self.reject_eog_contaminated_events(plot_eog=False)
 				evoked_aim, evoked_non_aim = self.cut_and_average(reg)
 				user_data[reg] = {'aim':evoked_aim, 'non_aim':evoked_non_aim}
 
 				p3peaks, n1peaks, peaks_dict = self.get_peaks_feom_evoked(evoked_aim, evoked_non_aim)
-
-				self.plot_evoked_response(	{'aim':evoked_aim, 'non_aim':evoked_non_aim}, 
+				if plot:
+					self.plot_evoked_response(	{'aim':evoked_aim, 'non_aim':evoked_non_aim}, 
 											# p300_n1_aim_fill = False, peakdot = False,
 											p3peaks = p3peaks, n1peaks = n1peaks, 
 											fname = '{}_{}'.format(user, reg))
-
-		self.plot_evoked_response(	{k:user_data[k]['aim'] for k in user_data.keys()},
+		if plot:
+			self.plot_evoked_response(	{k:user_data[k]['aim'] for k in user_data.keys()},
 									p300_n1_aim_fill = False, peakdot = False,
 									
 									fname = '_{}'.format(user))
 		# sys.exit()
 
 
+
 if __name__ == '__main__':
 	data_folder = 'D:/Data/20!8_winter_faces/exp'
 	Analysis = Analysis(data_folder = data_folder, session = 'play', interface_type = 'rowcol')
 	for user in range(1, 18):
-		Analysis.user_analysis(user)
-	Analysis.grand_average()
+		Analysis.user_analysis(user, plot = False)
+	# Analysis.grand_average()
+	Analysis.save_peak_data()
+
+
+
+	# for channel in peaks[0]['Facesnoise'].keys():
+	# 	channel_data = []
+	# 	for user in range(len(peaks)):
+	# 		userline = {reg: peaks[user][reg][channel] if peaks[user][reg] is not None else np.nan for reg in peaks[0].keys() } 
+	# 		channel_data.append(userline)
+	# 		print userline
+	# 	df = pd.DataFrame(channel_data)
+	# 	df.to_csv('./csv/{}.csv'.format(channel))
+	# 	# print df.shape
+	# 	# print df
