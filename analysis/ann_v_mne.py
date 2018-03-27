@@ -1,15 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*- 
 # ----------------------------------------------------------------------------
-# Name:	   ____
-# Purpose:   Erp plotting and analysis 
+# Name:	   ann_v_mne.py
+# Purpose:   Erp plotting and analysis -- eye_loc experiment
 # Author: Rafael Grigoryan, kriattiffer at gmail.com
 # Date: 13.03.18
 # ----------------------------------------------------------------------------
 
 import numpy as np
-import pandas as pd
-
 from matplotlib import pyplot as plt
 import os, sys, pickle
 import time, datetime
@@ -71,8 +69,7 @@ def create_events(eeg, evt, aims, interface_type):
 	events = np.vstack((aims_loc, nonaims_loc))
 	return events
 
-
-def _get_peaks(data, ch_names, times, tmin=None, tmax=None, mode='abs'):
+def _get_peaks(data, ch_names, times, tmin=None, tmax=None, mode='abs', average_lims = False):
 	'''
 		edited _get_peak function from mne.evoked
 	'''
@@ -116,11 +113,13 @@ def _get_peaks(data, ch_names, times, tmin=None, tmax=None, mode='abs'):
 
 	#____________________
 	tm =  maxfun(masked_index, axis = 1)
-	return {ch: [times[tm[n]],  masked_index[n, tm[n]]*1e6] for n, ch  in enumerate(ch_names)}
 
+	if average_lims:
+		return {ch: [times[tm[n]],  np.mean(masked_index[n, tm[n]-average_lims[0]:tm[n]+average_lims[1]])*1e6] for n, ch  in enumerate(ch_names)}
+	else:
+		return {ch: [times[tm[n]],  masked_index[n, tm[n]]*1e6] for n, ch  in enumerate(ch_names)}
 
-def get_peaks(self, ch_type=None, tmin=None, tmax=None,
-		 mode='abs', time_as_index=False, merge_grads=False):
+def get_peaks(self, ch_type=None, tmin=None, tmax=None, mode='abs', time_as_index=False, merge_grads=False, average_lims = False):
 	'''
 		edited get_peak function from mne.evoked.Evoked - rewrite with functools.partial later
 	'''
@@ -185,7 +184,7 @@ def get_peaks(self, ch_type=None, tmin=None, tmax=None,
 		ch_names = [ch_name[:-1] + 'X' for ch_name in ch_names[::2]]
 
 	peaks = _get_peaks(data, ch_names, self.times, tmin,
-								 tmax, mode)
+								 tmax, mode, average_lims)
 
 	return peaks
 		
@@ -218,16 +217,34 @@ class Analysis():
 		self.cc_non_aim_evoked = {f:0 for f in self.folders.keys()}
 		self.cc_aim_evoked = {f:0 for f in self.folders.keys()}
 
-		self.total_data = []
-		self.tota_evoked = []
+		self.total_data = {}
+		self.tota_evoked = {}
 
-	def read_data_files(self, reg_folder, reject_bad_files = True, read_fif_if_possible = True):
+	def isfilebad(self, eegfile, bad_files = []):
+		'''
+			Check file with list of bad files
+			Args:
+		  		eegfile	(str): path of filename of file to check
+		  		bad_files	(list): list of files to reject (can be empty)
+
+		  	Returns:
+		       bool: True if file is invalid, False otherwise.
+
+		'''
+		if bad_files:
+			if os.path.basename(eegfile).split('.')[0] in bad_files:  
+				print 'rejected {}'.format(eegfile)
+				return True
+		return False
+
+
+	def read_data_files(self, reg_folder, bad_files = False, read_fif_if_possible = True):
 		"""
 			read .txt, .npy or .fif raw files, optionally savr preprocessed EEG
 
 		    Args:
 		        reg_folder (str): folder with one recording
-		        reject_bad_files (bool): if True, reject files from bad_files list. 
+		        bad_files (bool/list): if not False, reject files from bad_files list. 
 		        					Reasons may include broken electrodes, 
 		        					exessive amounts of alpha rhytm or high ampltude low-frequency noise
 		        read_fif_if_possible (bool): if True, read .fif files (if present) instead of .txt or .npy
@@ -238,44 +255,37 @@ class Analysis():
 
 		   """
 
-		bad_files  =	['_data_facesnoise__play_14_19__31_10.npy',  # low freq
-						 '_data_faces__play_16_13_b_22_11.npy',  # low freq
-						 '_data_faces__play_14_33__31_10.npy',  # low freq
-						 '_data_faces__play_16_26__12_10.npy',  # alpha
-						 '_data_faces__play_15_10__01_11.npy',  # alpha
-						 '_data_faces__play_16_17__25_11.npy',  # alpha
-						 '_data_letters__play_14_05__31_10.npy',  # low freq
-						 '_data_noise__play_16_13__12_10.npy',  # alpha
-						 '_data_noise__play_16_29__25_11.npy']
+
 		if self.extension == 'txt':
 			np.load = np.genfromtxt
 		files = os.listdir(reg_folder)
 		files = [a for a in files if self.session in a]
+
+
 		if read_fif_if_possible:
 			if len([a for a in files if 'data' in a and '.raw.fif' in a]):
 				self.events = np.load(os.path.join(reg_folder, 'selfevents.npy'))
 				eegfile = os.path.join(reg_folder, [a for a in files if 'data' in a and '.raw.fif' in a][0])
 				print eegfile
+				if self.isfilebad(eegfile, bad_files = bad_files):
+					return False
+
 				self.eeg_filename = eegfile
 				self.raw = mne.io.read_raw_fif(eegfile)
 				self.raw.load_data()
 				return True
 
 		eegfile = os.path.join(reg_folder, [a for a in files if 'data' in a and self.extension in a][0])
+		print eegfile
+		if self.isfilebad(eegfile, bad_files = bad_files):
+			return False
 		self.eeg_filename = eegfile
-
-		if reject_bad_files:
-			if os.path.basename(eegfile) in bad_files:  # alpha
-				return False
-
 
 		evtfile = os.path.join(reg_folder, [a for a in files if 'events' in a and self.extension in a][0])
 		evt2file = os.path.join(reg_folder, [a for a in files if 'photocell' in a and self.extension in a][0])
 		# aimfile = os.path.join(reg_folder, [a for a in files if 'aims' in a][0])
 		eeg = np.load(eegfile).T
 		eeg = np.vstack( (eeg, np.zeros(np.shape(eeg)[1])) ) # add stim channel
-
-		print eegfile
 
 		evt = np.load(evtfile)
 		evt2 = np.load(evt2file)
@@ -379,21 +389,26 @@ class Analysis():
 		return evoked_aim, evoked_non_aim
 	
 	
-	def get_peaks_feom_evoked(self, evoked_aim, evoked_non_aim, delta = False, average = False):
+	def get_peaks_from_evoked(self, evoked_aim, evoked_non_aim, delta = False, p3average = [], n1average = []):
 		"""
 			Detect P300 and N1 peak ampltudes ans latencies
 
 		    Args:
 		        reg_folder (Evoked): Aim average waveforms
 		        evoked_non_aim (Evoked): non-aim average waveforms
-		        delta (bool): if True detect peaks in differential potentials //TBD
-		        average (bool): if True use average in window as ampltude //TBD
+		        delta (bool): if True detect peaks in differential potentials
+		        p3average (list): limits of ep averaging (can be length of 2 or empty)
+		        n1average (list): limits of ep averaging (can be length of 2 or empty) 
 
 		    Returns:
-		       dict: p3peaks and n1peaks for plotting and peaks_dict for creating csv files
+		       dict: p3peaks and n1peaks (for plotting) and peaks_dict (for statiscical analysis)
 		"""
-		p3peaks =  get_peaks(evoked_aim, ch_type='eeg', tmin = 0.25, tmax = 0.6, mode = 'pos')
-		n1peaks =  get_peaks(evoked_aim, ch_type='eeg', tmin = 0.08, tmax = 0.25, mode = 'neg')
+		if delta:
+			evoked_aim.data-= evoked_non_aim.data
+		# print evoked_aim.data
+		# sys.exit()
+		p3peaks =  get_peaks(evoked_aim, ch_type='eeg', tmin = 0.25, tmax = 0.6, mode = 'pos', average_lims = p3average)
+		n1peaks =  get_peaks(evoked_aim, ch_type='eeg', tmin = 0.08, tmax = 0.25, mode = 'neg', average_lims = n1average)
 		# print p3peaks
 		peaks_dict = {}
 		for p in p3peaks.keys():
@@ -484,27 +499,57 @@ class Analysis():
 
 		# print self.evoked_aim_saved_for_grand_average['Noise'].data
 	
-	def save_peak_data():
-		pass
+	def save_peak_data(self, filename = 'peaks'):
+		'''
+		Save dictionary of P300 and N100 data
+		{channel:{reg:[ep1, ep2...]}}
+
+		Args:
+		    filename (str): basename of pickle datafile 
+		'''
+		users = self.total_data.keys()
+		regs1 = self.total_data[users[0]].keys()
+		channels = self.total_data[users[0]][regs1[0]].keys()
+		regs = self.folders.keys()
+
+		total_data_comp = {a:{b:[] for b in regs} for a in channels}
+		print self.total_data
+		for user in users:
+			for reg in regs:
+				for channel in channels:
+					try:
+						epdata = self.total_data[user][reg][channel]
+					except KeyError:
+						epdata = np.NaN
+					total_data_comp[channel][reg].append(epdata)
+
+		with open('{}.pickle'.format(filename), 'wb') as file_obj:
+			pickle.dump(total_data_comp, file_obj)
+		print total_data_comp
+
+
 	
-	def user_analysis(self, user, plot = True, save_intermediate = True):
+	def user_analysis(self, user, plot = True, save_intermediate = True, bad_files = []):
 		"""
 			Main function for one user
 
 		    Args:
 		        user (str/int): user folder name
 		  		save_intermediate (bool): if True, save raw eeg files with events and applied filters to .fif files
+		  		bad_files	(list): list of files to reject (can be empty)
 		"""
 
-		data = {'Faces': [], 'Facesnoise':[], 'Letters':[], 'Noise':[]}
+
 		peaks = []
+
 		
 		user_folder =  os.path.join(self.data_folder, str(user))
 		# user_data = {'user':user}
 		user_data = {}
+		user_peak_data = {}
 
 		for reg in self.folders.keys():
-			isfilevalid = self.read_data_files(os.path.join(user_folder, self.folders[reg]), reject_bad_files = False, read_fif_if_possible = True)
+			isfilevalid = self.read_data_files(os.path.join(user_folder, self.folders[reg]), bad_files = bad_files, read_fif_if_possible = True)
 			if isfilevalid:
 				# self.raw.plot(block = True)
 				if np.isclose(self.raw.info['highpass'], self.l_freq) and np.isclose(self.raw.info['lowpass'], self.h_freq): #default values for unfiltered data
@@ -521,7 +566,11 @@ class Analysis():
 				evoked_aim, evoked_non_aim = self.cut_and_average(reg)
 				user_data[reg] = {'aim':evoked_aim, 'non_aim':evoked_non_aim}
 
-				p3peaks, n1peaks, peaks_dict = self.get_peaks_feom_evoked(evoked_aim, evoked_non_aim)
+				p3peaks, n1peaks, peaks_dict = self.get_peaks_from_evoked(evoked_aim, evoked_non_aim, 	delta = True)
+																										# p3average = [5, 6],
+																										# n1average = [1,2]
+																										# )
+				user_peak_data[reg] = peaks_dict
 				if plot:
 					self.plot_evoked_response(	{'aim':evoked_aim, 'non_aim':evoked_non_aim}, 
 											# p300_n1_aim_fill = False, peakdot = False,
@@ -532,27 +581,28 @@ class Analysis():
 									p300_n1_aim_fill = False, peakdot = False,
 									
 									fname = '_{}'.format(user))
+
+		self.total_data[str(user)] = user_peak_data
 		# sys.exit()
 
 
 
 if __name__ == '__main__':
 	data_folder = 'D:/Data/20!8_winter_faces/exp'
+	
+	bad_files = 	['_data_facesnoise__play_14_19__31_10.npy',  # low freq
+					 '_data_faces__play_16_13_b_22_11.npy',  # low freq
+					 '_data_faces__play_14_33__31_10.npy',  # low freq
+					 '_data_faces__play_16_26__12_10.npy',  # alpha
+					 '_data_faces__play_15_10__01_11.npy',  # alpha
+					 '_data_faces__play_16_17__25_11.npy',  # alpha
+					 '_data_letters__play_14_05__31_10.npy',  # low freq
+					 '_data_noise__play_16_13__12_10.npy',  # alpha
+					 '_data_noise__play_16_29__25_11.npy']
+	bad_files = [a.split('.')[0] for a in bad_files]
+	
 	Analysis = Analysis(data_folder = data_folder, session = 'play', interface_type = 'rowcol')
-	for user in range(1, 18):
-		Analysis.user_analysis(user, plot = False)
-	# Analysis.grand_average()
-	Analysis.save_peak_data()
-
-
-
-	# for channel in peaks[0]['Facesnoise'].keys():
-	# 	channel_data = []
-	# 	for user in range(len(peaks)):
-	# 		userline = {reg: peaks[user][reg][channel] if peaks[user][reg] is not None else np.nan for reg in peaks[0].keys() } 
-	# 		channel_data.append(userline)
-	# 		print userline
-	# 	df = pd.DataFrame(channel_data)
-	# 	df.to_csv('./csv/{}.csv'.format(channel))
-	# 	# print df.shape
-	# 	# print df
+	for user in [1,2,5,6,7,8,9,10,12,14,16,17]:
+		Analysis.user_analysis(user, plot = False, bad_files = bad_files)
+	Analysis.grand_average()
+	Analysis.save_peak_data(filename='peaks_dot')
