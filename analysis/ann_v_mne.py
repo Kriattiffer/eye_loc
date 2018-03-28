@@ -204,8 +204,8 @@ class Analysis():
 
 		self.plot_colors =  {'Faces': 'red', 'Facesnoise':'green', 'Letters':'black', 'Noise':'blue', 'aim':'#e41a1c', 'non_aim':'#377eb8'}
 
-		names = [a for a in u'abcdefghijklmonpqrstuvwxyz_1234567890!@#$%^&*()+=-~[]{};:\"\|?.,/<>½¾¿±®©§£¥¢÷µ¬']
-		self.aims = [names.index(a) for a in '@neuroscience!'] #[0,5,36,41, 21]
+		self.charset = [a for a in u'abcdefghijklmonpqrstuvwxyz_1234567890!@#$%^&*()+=-~[]{};:\"\|?.,/<>½¾¿±®©§£¥¢÷µ¬']
+		self.aims = [self.charset.index(a) for a in '@neuroscience!'] #[0,5,36,41, 21]
 		self.interface_type = interface_type
 
 		self.channels = ['time', "eyes","ecg",   "a2","f3","fz","f4","c5","p7","c3","cz","c4","c6","cp1","cp2","p3","pz","p4","p8","o1","oz","o2", 'stim']
@@ -214,9 +214,17 @@ class Analysis():
 		self.data_folder = data_folder
 		self.folders = {'Faces': 'fcs', 'Facesnoise':'fn', 'Letters':'ltrs', 'Noise':'ns'}
 		
+		self.show_raw_eeg = False
 		self.session = session
 		self.extension = '.npy'
+		self.reject_eog_artifacts = True
+		self.read_fif_if_possible = True
+		
+		self.fix_folder_ecg_eog = []
 
+		self.update_analysis_template()
+
+	def update_analysis_template(self):
 		self.evoked_non_aim_saved_for_grand_average = {k:False for k in self.folders.keys()}
 		self.evoked_aim_saved_for_grand_average = {k:False for k in self.folders.keys()}
 		self.cc_non_aim_evoked = {f:0 for f in self.folders.keys()}
@@ -242,31 +250,29 @@ class Analysis():
 		return False
 
 
-	def read_data_files(self, reg_folder, read_fif_if_possible = True):
+	def read_data_files(self, reg_folder):
 		"""
 			read .txt, .npy or .fif raw files, optionally savr preprocessed EEG
 
 		    Args:
 		        reg_folder (str): folder with one recording
-		        read_fif_if_possible (bool): if True, read .fif files (if present) instead of .txt or .npy
-
 
 		    Returns:
 		       bool: True if files in directory are valid, False otherwise.
 
 		   """
 
-
+		print reg_folder
 		if self.extension == 'txt':
 			np.load = np.genfromtxt
 		files = os.listdir(reg_folder)
 		files = [a for a in files if self.session in a]
 
 
-		if read_fif_if_possible:
+		if self.read_fif_if_possible:
 			if len([a for a in files if 'data' in a and '.raw.fif' in a]):
 				self.events = np.load(os.path.join(reg_folder, 'selfevents.npy'))
-				eegfile = os.path.join(reg_folder, [a for a in files if 'data' in a and '.raw.fif' in a][0])
+				eegfile = os.path.join(reg_folder, [a for a in files if 'DATA' in a.upper() and '.raw.fif'.upper() in a.upper()][0])
 				print eegfile
 				if self.isfilebad(eegfile):
 					return False
@@ -276,14 +282,15 @@ class Analysis():
 				self.raw.load_data()
 				return True
 
-		eegfile = os.path.join(reg_folder, [a for a in files if 'data' in a and self.extension in a][0])
+
+		eegfile = os.path.join(reg_folder, [a for a in files if 'DATA' in a.upper() and self.extension.upper() in a.upper()][0])
 		print eegfile
 		if self.isfilebad(eegfile):
 			return False
 		self.eeg_filename = eegfile
 
-		evtfile = os.path.join(reg_folder, [a for a in files if 'events' in a and self.extension in a][0])
-		evt2file = os.path.join(reg_folder, [a for a in files if 'photocell' in a and self.extension in a][0])
+		evtfile = os.path.join(reg_folder, [a for a in files if 'EVENTS' in a.upper() and self.extension.upper() in a.upper()][0])
+		evt2file = os.path.join(reg_folder, [a for a in files if 'PHOTOCELL' in a.upper() and self.extension.upper() in a.upper()][0])
 		# aimfile = os.path.join(reg_folder, [a for a in files if 'aims' in a][0])
 		eeg = np.load(eegfile).T
 		eeg = np.vstack( (eeg, np.zeros(np.shape(eeg)[1])) ) # add stim channel
@@ -292,10 +299,12 @@ class Analysis():
 		evt2 = np.load(evt2file)
 		self.events = create_events(eeg, evt, self.aims, self.interface_type)
 		
-		if eegfile.split('\\')[1] == '3':				#Ugly fix for electrode placement error for user 3
-			self.ch_types[1], self.ch_types[2] = 'ecg', 'eog'
-		else:
-			self.ch_types[1], self.ch_types[2] = 'eog', 'ecg'
+		if self.fix_folder_ecg_eog:
+			if os.path.dirname(eegfile).split('\\')[-2] in self.fix_folder_ecg_eog:				#Ugly fix for electrode placement error for user 3
+				print 'fixing'
+				self.ch_types[1], self.ch_types[2] = 'ecg', 'eog'
+			else:
+				self.ch_types[1], self.ch_types[2] = 'eog', 'ecg'
 
 		info = mne.create_info(ch_names=self.channels, sfreq=self.sfreq, ch_types=self.ch_types)
 		self.raw = mne.io.RawArray(eeg, info )
@@ -318,13 +327,10 @@ class Analysis():
 		self.raw.save(self.eeg_filename+ extension, overwrite=True)
 		self.events.dump(os.path.join(reg_folder, 'selfevents.npy'))
 
-	def reject_eog_contaminated_events(self, plot_eog = False):
+	def reject_eog_contaminated_events(self):
 		"""
 			detect eog events with mne function and reject events, determining 
 			epochs  that overlap with +-250 ms around eog events.
-
-		    Args:
-		        plot_eog (bool): if True, plot raw file with eog events (blocking)
 		    
 		    Returns:
 		        bool: True
@@ -332,7 +338,7 @@ class Analysis():
 
 		eog_events = mne.preprocessing.find_eog_events(self.raw)
 
-		if plot_eog:	
+		if self.show_raw_eeg:	
 			n_blinks = len(eog_events)
 			onset = eog_events[:, 0] / self.raw.info['sfreq'] - 0.25
 			duration = np.repeat(0.5, n_blinks)
@@ -366,7 +372,7 @@ class Analysis():
 		evoked_aim = epochs['aim'].average()
 		evoked_non_aim = epochs['non_aim'].average()
 
-		evoked_aim.plot_joint()
+		# evoked_aim.plot_joint()
 
 		self.cc_non_aim_evoked[reg] +=len(epochs['non_aim'].events)
 		self.cc_aim_evoked[reg] +=len(epochs['aim'].events)		
@@ -527,7 +533,7 @@ class Analysis():
 		
 		settings = {'lfreq':self.l_freq, 'hfreq':self.h_freq, 
 					'p3average':self.p3average, 'n1average':self.n1average, 
-					'bad_files':self.bad_files}
+					'bad_files':self.bad_files, 'delta': self.delta}
 		with open('{}.settings.txt'.format(filename), 'w') as file_obj:
 			file_obj.write(str(settings))		
 
@@ -551,9 +557,11 @@ class Analysis():
 		user_peak_data = {}
 
 		for reg in self.folders.keys():
-			isfilevalid = self.read_data_files(os.path.join(user_folder, self.folders[reg]), read_fif_if_possible = True)
+			print reg
+			isfilevalid = self.read_data_files(os.path.join(user_folder, self.folders[reg]))
 			if isfilevalid:
-				self.raw.plot(block = True)
+				if self.show_raw_eeg:
+					self.raw.plot(block = True)
 				if np.isclose(self.raw.info['highpass'], self.l_freq) and np.isclose(self.raw.info['lowpass'], self.h_freq): #default values for unfiltered data
 					pass
 				else:
@@ -563,8 +571,8 @@ class Analysis():
 						print 'saving'
 						self.save_intermediate(reg_folder = os.path.join(user_folder, self.folders[reg]))
 
-
-				self.reject_eog_contaminated_events(plot_eog=True)
+				if self.reject_eog_artifacts:
+					self.reject_eog_contaminated_events()
 				evoked_aim, evoked_non_aim = self.cut_and_average(reg)
 				user_data[reg] = {'aim':evoked_aim, 'non_aim':evoked_non_aim}
 
@@ -590,7 +598,8 @@ class Analysis():
 
 
 if __name__ == '__main__':
-	data_folder = 'D:/Data/20!8_winter_faces/exp'
+	# data_folder = 'D:/Data/20!8_winter_faces/exp'
+	data_folder = r'..\exp\valid'
 	
 	bad_files = 	['_data_facesnoise__play_14_19__31_10.npy',  # low freq
 					 '_data_faces__play_16_13_b_22_11.npy',  # low freq
@@ -606,9 +615,12 @@ if __name__ == '__main__':
 	
 	Analysis = Analysis(data_folder = data_folder, session = 'play', interface_type = 'rowcol')
 	Analysis.bad_files = bad_files
-	# Analysis.l_freq = 1
+	Analysis.read_fif_if_possible = True
+	Analysis.l_freq = 1
+	Analysis.fix_folder_ecg_eog = ['3']
+	Analysis.show_raw_eeg = False
 	# for user in [1,2,5,6,7,8,9,10,12,14,16,17]:
 	for user in range(1,18):
-		Analysis.user_analysis(user, plot = False)
+		Analysis.user_analysis(user, plot = True)
 	Analysis.grand_average()
-	Analysis.save_peak_data(filename='peaks_dot')
+	Analysis.save_peak_data(filename='peaks')
