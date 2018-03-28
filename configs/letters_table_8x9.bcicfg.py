@@ -27,5 +27,5 @@ config = {
 	'aims_learn': [1,5,9,13,17,21,25,30,34,38],
 	'aims_play': [names.index(a) for a in 'neuroscience']
 			}
-print config['aims_play']
+# print config['aims_play']
 # print config

@@ -10,10 +10,15 @@
 from iViewXAPI import  *  #iViewX library
 from ctypes import *
 import time, sys, ast, os
+import numpy as np
 import present
 from pylsl import StreamInlet, resolve_stream
 
-
+###REDACTED###
+class CCalibrationPointStruct(Structure):
+    _fields_=[('number', c_int),('positionX', c_int),('positionY', c_int)]
+calibrationPoint=CCalibrationPointStruct(0,0,0)
+###REDACTED###
 
 def create_stream(stream_name_markers = 'CycleStart', recursion_meter = 0, max_recursion_depth = 3):
         ''' Opens LSL stream for markers, If error, tries to reconnect several times'''
@@ -57,16 +62,31 @@ class Eyetracker():
             if debug != True:
                 self.exit_()
 
+    ###REDACTED###
+    def get_calibration_point(self, number):
+        'updates calibrationPoint data structure'
+        self.res=iViewXAPI.iV_GetCalibrationPoint(number, byref(calibrationPoint))
+
+    def get_accuracy(self):
+        'updates AccuracyStruct data structure'
+        self.res=iViewXAPI.iV_GetAccuracy(byref(accuracyData), c_int(0))
+        dlx=accuracyData.deviationLX
+        dly=accuracyData.deviationLY
+        drx=accuracyData.deviationRX
+        dry=accuracyData.deviationRY
+        return np.mean([dlx,drx]), np.mean([dly, dry])
+    ###REDACTED###
+
     def  calibrate(self):
         '''configure and start calibration'''
 
         numberofPoints = self.number_of_points # can be 2, 5 and 9
         displayDevice = self.screen # 0 - primary, 1- secondary (?)
         pointBrightness = 250
-        backgroundBrightnress = 50
+        backgroundBrightnress = 0
         targetFile = b""
         calibrationSpeed = 0 # slow
-        autoAccept  = 1 # 0 = auto, 1 = semi-auto, 2 = auto 
+        autoAccept  = 1 # 0 = manual, 1 = semi-auto, 2 = auto 
         targetShape = 1 # 0 = image, 1 = circle1, 2 = circle2, 3 = cross
         targetSize = 20
         WTF = 1 #do not touch -- preset?
@@ -77,6 +97,17 @@ class Eyetracker():
 
         self.res = iViewXAPI.iV_SetupCalibration(byref(calibrationData))
         print "iV_SetupCalibration " + str(self.res)
+
+        ###REDACTED###
+        #new_positions= [(841,526),(196,137), (1374, 148),(204,933), (1382,920), (210, 532), (832,143), (1392, 517), (861, 920)]
+        new_positions= [(840, 525),(280,60), (280, 990), (1400, 60), (1400,990), (280, 525), (840, 525), (840, 60), (840, 990)]
+        #for i in range(1,10,1):
+            #self.get_calibration_point(i)
+            #print calibrationPoint.positionX, calibrationPoint.positionY
+        for i in range(len(new_positions)):
+            self.res=iViewXAPI.iV_ChangeCalibrationPoint(i+1,new_positions[i][0], new_positions[i][1]) # new coordinates for calibration points
+        ###REDACTED###
+
         self.res = iViewXAPI.iV_Calibrate()
         print   "iV_Calibrate " + str(self.res)
 
@@ -86,9 +117,9 @@ class Eyetracker():
             Results are displayed in iViewX'''
         self.res = iViewXAPI.iV_Validate()
         print "iV_Validate " + str(self.res)
-        # self.res = iViewXAPI.iV_ShowAccuracyMonitor()
-        # self.res = iViewXAPI.iV_ShowEyeImageMonitor()
-        # raw_input('press any key to continue')
+        #self.res = iViewXAPI.iV_ShowAccuracyMonitor()
+        #self.res = iViewXAPI.iV_ShowEyeImageMonitor()
+        #raw_input('press any key to continue')
 
     def connect_to_iView(self):
         ''' Connect to iViewX using predeficed host and server IPs'''
@@ -122,9 +153,20 @@ class Eyetracker():
                 self.exit_()
 
     def main(self):
+        accuracy_x=[]
+        accuracy_y=[]
         self.connect_to_iView()
         self.calibrate()
-        self.validate()
+        #self.validate()
+        ###REDACTED###
+        for i in range(3):
+            self.validate()
+            x,y =self.get_accuracy()
+            accuracy_x.append(x)
+            accuracy_y.append(y)  
+        print 'Mean deviation x (deg): ', np.mean(accuracy_x)
+        print 'Mean deviation y (deg): ', np.mean(accuracy_y)
+        ###REDACTED###
         self.namespace.EYETRACK_CALIB_SUCCESS = True
         self.experiment_loop()
 

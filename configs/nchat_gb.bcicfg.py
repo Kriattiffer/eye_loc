@@ -3,19 +3,20 @@
 import numpy as np
 import itertools
 
-r,c = 6,7
-step_vert = 125
-step_horiz = 200
+r,c = 9,5
+step_vert = 160
+step_horiz = 160
 
 names = [a for a in u'abcdefghijklmonpqrstuvwxyz_1234567890!@#$%^&*()+=-~[]{};:\"\|?.,/<>½¾¿±®©§£¥¢÷µ¬']
 aim_word = '@neuroscience!'
 rows = [list(a) for a in np.arange(r*c).reshape((c,r)).T]
 columns = [list(a) for a in np.arange(r*c).reshape((c,r))] 
-posr = [100 - step_horiz* (len(rows)/2- a) for a in range(r)]
+posr = [200 - step_horiz* (len(rows)/2- a) for a in range(r)]
+posr [0] = -780
 posc = [0 - step_vert* (len(columns)/2- a) for a in range(len(columns))]
 pos = [(r, c) for c in posc[::-1] for r in posr ]
 config = {
-	'stimuli_dir':'.\\rescources\\stimuli\\letters_table_black_noise',
+	'stimuli_dir':'.\\rescources\\stimuli\\nchat_gb',
 	'background':'black',
 	'rows':rows,
 	'columns':columns,
@@ -29,4 +30,12 @@ config = {
 			}
 # print config['aims_play']
 # print rows + columns
-print pos
+
+# print config['positions']
+
+
+# a
+# j
+# s
+# 1
+# 0

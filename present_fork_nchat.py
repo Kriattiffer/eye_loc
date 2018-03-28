@@ -46,14 +46,8 @@ class ENVIRONMENT():
 		self.LEARN = True
 
 		self.number_of_inputs = self.config['number_of_inputs']
-		try:
-			self.shrink_matrix = self.config['shrink_matrix']
-			self.matrix_size_locked = True
-			self.textsize = self.config['textsize']
-		except KeyError:
-			self.shrink_matrix = 1
-			self.matrix_size_locked = False
-			self.textsize = None
+
+		self.shrink_matrix = 1
 		
 		self.LSL = create_lsl_outlet() # create outlet for sync
 		core.wait(0.1)		
@@ -92,9 +86,14 @@ class ENVIRONMENT():
 			name = int(pic.split('_')[1])
 			pic = os.path.join(self.config['stimuli_dir'], pic)
 			if name in self.stimuli_indices:
-				stim = visual.ImageStim(self.win, image=pic,
-										 name = name,
-										size = self.config['size']/self.shrink_matrix, units = 'pix')
+				if name not in [0,9,18,27,36]:  # bydlocode =>> change size param to [x,y]
+					stim = visual.ImageStim(self.win, image=pic,
+											 name = name,
+											size = self.config['size']/self.shrink_matrix, units = 'pix')
+				else:
+					stim = visual.ImageStim(self.win, image=pic,
+											 name = name,
+											size = [265,96], units = 'pix')
 				if 'non_active' not in pic:
 					active_stims.append(stim)
 				else:
@@ -104,8 +103,7 @@ class ENVIRONMENT():
 		active_stims  = active_stims
 		non_active_stims  = non_active_stims
 
-		self.textarea = visual.TextStim(self.win, text = u'', rgb = '#3e4147', pos = (0,0.97), alignVert = 'top', alignHoriz = 'center',
-										height = self.textsize)
+		self.textarea = visual.TextStim(self.win, text = u'', rgb = 'red', pos = (0,0.97), alignVert = 'top', alignHoriz = 'center')
 		self.textarea.autoDraw = True
 		self.photocell = visual.Rect(self.win, width=0.1, height=0.2, fillColor = 'black', lineWidth = 0)
 		self.photocell.pos = [0.95,0.9]
@@ -122,7 +120,6 @@ class ENVIRONMENT():
 			a.autoDraw = True
 			
 		self.stimlist = [non_active_stims, active_stims]
-		# print [a.pos for a in active_stims]
 
 	
 	def sendTrigger(self, stim):
@@ -185,7 +182,7 @@ class ENVIRONMENT():
 
 			self.wait_for_event(key = 'LMB', wait = waitforLMB)
 
-			self.highlight_cell(aim, displaytime = 3, colorize = True) # indicate aim_stimulus
+			self.highlight_cell(aim, displaytime = 3) # indicate aim_stimulus
 
 			if 'escape' in event.getKeys():
 				self.exit_()
@@ -236,7 +233,7 @@ class ENVIRONMENT():
 		else:
 			self.exit_()
 
-	def highlight_cell(self, cell, colorize = False, displaytime = 2):
+	def highlight_cell(self, cell, displaytime = 2):
 			'''
 				Change cell state to active for some time.
 				Arguments:
@@ -245,8 +242,6 @@ class ENVIRONMENT():
 					default: 2
 			'''
 			print cell#, len(self.stimlist[1])
-			print self.stimlist[1][cell].color
-			self.stimlist[1][cell].color *= [1, 1, 0]
 			self.stimlist[1][cell].autoDraw = True # indicate aim stimuli
 			self.stimlist[0][cell].autoDraw = False 
 			self.win.flip()
@@ -254,7 +249,6 @@ class ENVIRONMENT():
 			core.wait(displaytime)
 			
 			self.stimlist[0][cell].autoDraw = True  # fade back
-			self.stimlist[1][cell].color = [1,1,1]
 			self.stimlist[1][cell].autoDraw = False 
 			self.win.flip()
 			core.wait(1)
@@ -380,39 +374,23 @@ class emptyclass():
 	"""
 	EYETRACK_CALIB_SUCCESS = True
 	EEG_RECORDING_STARTED = True
+	config = './configs/facesnoise.bcicfg.py'
 	config = './configs/letters.bcicfg.py'
-	# config = './configs/faces.bcicfg.py'
-	# config = './configs/noise.bcicfg.py'
-	# config = './configs/facesnoise.bcicfg.py'
-	# config='./configs/gb.bcicfg_big.py'
-	#config='./configs/gb.bcicfg.py'
-
-	#differnt sizes and intervals
-	# config='./configs/gb_LARGE_STIMS.bcicfg.py'
-	# config='./configs/gb_SMALL_STIMS.bcicfg.py'
-	#config='./configs/gb_SMALL_STIMS_LARGE_MATRIX.bcicfg.py'
-	# config='./configs/gb_LARGE_STIMS_LARGE_MATRIX.bcicfg.py'
-	# config='./configs/gb_MEDIUM.bcicfg.py'
+	config = './configs/nchat_gb.bcicfg.py'
 
 
-
-	# config = './configs/nchat_gb.bcicfg.py'
-
-
-if __name__ == '__main__': 
+if __name__ == '__main__':
 	print 'done imports'
-	# os.chdir(os.path.dirname(__file__)) 	# VLC PATH BUG ==> submit?
+	os.chdir(os.path.dirname(__file__)) 	# VLC PATH BUG ==> submit?
 
 	ENV = ENVIRONMENT(namespace =emptyclass, DEMO = True)
-	#ENV = ENVIRONMENT(namespace =emptyclass, DEMO = True, config = './configs/hexospell.bcicfg')
+	# ENV = ENVIRONMENT(namespace =emptyclass, DEMO = True, config = './configs/hexospell.bcicfg')
+
 	# ENV = ENVIRONMENT(namespace =emptyclass, DEMO = True, config = './configs/letters_table_6x6.bcicfg')
 
 	ENV.Fullscreen = True
 	ENV.refresh_rate = 60
-	if not ENV.matrix_size_locked:
-		ENV.shrink_matrix = 1.1
-
+	ENV.shrink_matrix = 1.12
 	ENV.build_gui(monitor = mymon, screen = 1)#, stimuli_number = 25)
-	# ENV.textarea.text = 'sdfgfgfgfgfgfgfgfgfgfgfgfgfgfgfgs'
 
-	ENV.run_exp(stim_duration_FRAMES = 9, ISI_FRAMES = 3, repetitions = 10, waitforS = False)
+	ENV.run_exp(stim_duration_FRAMES = 4, ISI_FRAMES = 8, repetitions = 10, waitforS = False)

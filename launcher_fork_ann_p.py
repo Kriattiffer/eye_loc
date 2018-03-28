@@ -19,8 +19,8 @@ device = 'NVX52'
 mapnames = {'eeg':'./eegdata.mmap', 
 			'markers':'./markers.mmap',
 			'photocell': './photocell.mmap'}
-classifier_channels = [a-1 for a in [21, 19, 17, 16, 15, 14, 13, 10]]
-# classifier_channels = [a for a in range(8)]
+# classifier_channels = [a-1 for a in [21, 19, 17, 16, 15, 14, 13, 10]]
+classifier_channels = [1,2,3,4,5,6,7,8,9]
 
 
 savedclass = False

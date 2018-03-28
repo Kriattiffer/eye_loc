@@ -15,13 +15,13 @@ posr = [100 - step_horiz* (len(rows)/2- a) for a in range(r)]
 posc = [0 - step_vert* (len(columns)/2- a) for a in range(len(columns))]
 pos = [(r, c) for c in posc[::-1] for r in posr ]
 config = {
-	'stimuli_dir':'.\\rescources\\stimuli\\letters_table_black_noise',
+	'stimuli_dir':'.\\rescources\\stimuli\\letters_table_black',
 	'background':'black',
 	'rows':rows,
 	'columns':columns,
 	'positions':pos,
 	'names':names,
-	'size':100,
+	'size':50,
 	'window_size':(1680, 1050),
 	'number_of_inputs':12,
 	'aims_learn': [0,5,36,41,21],#[29,35],#,9,13,17,21,25,30,34,38],

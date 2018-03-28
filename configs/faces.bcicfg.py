@@ -8,7 +8,7 @@ step_vert = 125
 step_horiz = 200
 
 names = [a for a in u'abcdefghijklmonpqrstuvwxyz_1234567890!@#$%^&*()+=-~[]{};:\"\|?.,/<>½¾¿±®©§£¥¢÷µ¬']
-aim_word = '#moscowbcilab'
+aim_word = '@neuroscience!'
 rows = [list(a) for a in np.arange(r*c).reshape((c,r)).T]
 columns = [list(a) for a in np.arange(r*c).reshape((c,r))] 
 posr = [100 - step_horiz* (len(rows)/2- a) for a in range(r)]
@@ -29,3 +29,4 @@ config = {
 			}
 # print config['aims_play']
 # print rows + columns
+print pos

@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*- 
+ # -*- coding: utf-8 -*- 
 
 import numpy as np
 import itertools
@@ -8,14 +8,14 @@ step_vert = 125
 step_horiz = 200
 
 names = [a for a in u'abcdefghijklmonpqrstuvwxyz_1234567890!@#$%^&*()+=-~[]{};:\"\|?.,/<>½¾¿±®©§£¥¢÷µ¬']
-aim_word = '@neuroscience!'
+aim_word = 'brain'
 rows = [list(a) for a in np.arange(r*c).reshape((c,r)).T]
 columns = [list(a) for a in np.arange(r*c).reshape((c,r))] 
 posr = [100 - step_horiz* (len(rows)/2- a) for a in range(r)]
 posc = [0 - step_vert* (len(columns)/2- a) for a in range(len(columns))]
 pos = [(r, c) for c in posc[::-1] for r in posr ]
 config = {
-	'stimuli_dir':'.\\rescources\\stimuli\\letters_table_black_noise',
+	'stimuli_dir':'.\\rescources\\stimuli\\border',
 	'background':'black',
 	'rows':rows,
 	'columns':columns,
@@ -28,5 +28,5 @@ config = {
 	'aims_play': [names.index(a) for a in aim_word]#[0:2]
 			}
 # print config['aims_play']
-# print rows + columns
+#print rows + columns
 print pos

@@ -8,7 +8,8 @@
 # ----------------------------------------------------------------------------
 
 import multiprocessing, sys, os, time, argparse
-import present, eyetracker, eeg, classify
+import present_fork_nchat as present
+import eyetracker, eeg, classify
 
 # config = './configs/letters_table_8x9.bcicfg.py'
 data_folder = './experimental_data'
@@ -19,12 +20,13 @@ device = 'NVX52'
 mapnames = {'eeg':'./eegdata.mmap', 
 			'markers':'./markers.mmap',
 			'photocell': './photocell.mmap'}
+# classifier_channels	 = range(8)
 classifier_channels = [a-1 for a in [21, 19, 17, 16, 15, 14, 13, 10]]
-# classifier_channels = [a for a in range(8)]
+classifier_channels = [a for a in range(8)]
 
 
 savedclass = False
-# savedclass = './experimental_data/letters_small_18_37__01_08.cls'
+# savedclass = './experimental_data/nchat_gb_16_29__11_07.cls'
 
 def stims(namespace, ISI_FRAMES = 4, stim_duration_FRAMES = 4, repeats = 10):
 	'''Create stimulation window'''
@@ -32,7 +34,7 @@ def stims(namespace, ISI_FRAMES = 4, stim_duration_FRAMES = 4, repeats = 10):
 	
 	ENV.Fullscreen = True 	
 	ENV.refresh_rate = refresh_rate
-	ENV.shrink_matrix = 1.1
+	ENV.shrink_matrix = 1.12
 	ENV.build_gui(monitor = present.mymon, 
 				  screen = screen, stimuli_number = False)
 	if savedclass:
@@ -76,13 +78,13 @@ def class_(namespace):
 if __name__ == '__main__':
 
 	parser = argparse.ArgumentParser()
-	parser.add_argument('-i', action='store', dest='isi', type=int, default = 3)
-	parser.add_argument('-d', action='store', dest='sdf', type=int, default = 9)
+	parser.add_argument('-i', action='store', dest='isi', type=int, default = 4)
+	parser.add_argument('-d', action='store', dest='sdf', type=int, default = 8)
 	parser.add_argument('-r', action='store', dest='rpt', type=int, default = 10)
 	parser.add_argument('--noeyetrack', action='store_true', dest='fake_et')
 
 	parser.add_argument('--config', action='store', dest='config', type=str, 
-						default = './configs/letters.bcicfg.py')
+						default = './configs/nchat_gb.bcicfg.py')
 						# default = './configs/hexospell.bcicfg')
 
 	args = vars(parser.parse_args())

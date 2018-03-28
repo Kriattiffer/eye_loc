@@ -40,9 +40,9 @@ stim_colors = ['#505050']*len(stimlist)
 
 
 imgsize = (200,200)
-textpos = 50, -30
+textpos = 30, -5
 # fnt = ImageFont.truetype("arial.ttf", 200)
-fnt = ImageFont.truetype("Inconsolata-Regular.ttf", 200)
+fnt = ImageFont.truetype("Inconsolata-Regular.ttf", 90)
 
 
 ################################################################
@@ -62,6 +62,24 @@ def draw_text(stimlist):
 		stims_a.append(b1)
 
 	return {'active':stims_a, 'non_active':stims_na}
+
+
+def draw_text_nchat(stimlist):
+	stims_a, stims_na = [],[]
+	for n, stim in enumerate(stimlist):
+		b  = Image.open('na_template.png')
+		draw = ImageDraw.Draw(b)
+		draw.text(textpos, stim, '#282828', font  =fnt)
+		stims_na.append(b)
+
+		b1  = Image.open('a_template.png')
+		draw = ImageDraw.Draw(b1)
+		draw.text(textpos, stim, 'black', font  =fnt)
+		draw = ImageDraw.Draw(b1)
+		stims_a.append(b1)
+
+	return {'active':stims_a, 'non_active':stims_na}
+
 
 
 def save_stims(picdict):
@@ -86,7 +104,7 @@ def draw_circles():
 	return {'active':stims_a, 'non_active':stims_na}
 
 
-
 # pics = draw_circles()
-pics = draw_text(stimlist)
+# pics = draw_text(stimlist)
+pics = draw_text_nchat(stimlist)
 save_stims(pics)
