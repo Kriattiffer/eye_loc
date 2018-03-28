@@ -197,6 +197,11 @@ class Analysis():
 		self.sfreq = 500
 		self.l_freq = 0.1
 		self.h_freq = 35
+		self.delta = True
+		self.p3average = []
+		self.n1average = []
+		self.bad_files = []
+
 		self.plot_colors =  {'Faces': 'red', 'Facesnoise':'green', 'Letters':'black', 'Noise':'blue', 'aim':'#e41a1c', 'non_aim':'#377eb8'}
 
 		names = [a for a in u'abcdefghijklmonpqrstuvwxyz_1234567890!@#$%^&*()+=-~[]{};:\"\|?.,/<>½¾¿±®©§£¥¢÷µ¬']
@@ -220,33 +225,29 @@ class Analysis():
 		self.total_data = {}
 		self.tota_evoked = {}
 
-	def isfilebad(self, eegfile, bad_files = []):
+	def isfilebad(self, eegfile):
 		'''
 			Check file with list of bad files
 			Args:
 		  		eegfile	(str): path of filename of file to check
-		  		bad_files	(list): list of files to reject (can be empty)
 
 		  	Returns:
 		       bool: True if file is invalid, False otherwise.
 
 		'''
-		if bad_files:
-			if os.path.basename(eegfile).split('.')[0] in bad_files:  
+		if self.bad_files:
+			if os.path.basename(eegfile).split('.')[0] in self.bad_files:  
 				print 'rejected {}'.format(eegfile)
 				return True
 		return False
 
 
-	def read_data_files(self, reg_folder, bad_files = False, read_fif_if_possible = True):
+	def read_data_files(self, reg_folder, read_fif_if_possible = True):
 		"""
 			read .txt, .npy or .fif raw files, optionally savr preprocessed EEG
 
 		    Args:
 		        reg_folder (str): folder with one recording
-		        bad_files (bool/list): if not False, reject files from bad_files list. 
-		        					Reasons may include broken electrodes, 
-		        					exessive amounts of alpha rhytm or high ampltude low-frequency noise
 		        read_fif_if_possible (bool): if True, read .fif files (if present) instead of .txt or .npy
 
 
@@ -267,7 +268,7 @@ class Analysis():
 				self.events = np.load(os.path.join(reg_folder, 'selfevents.npy'))
 				eegfile = os.path.join(reg_folder, [a for a in files if 'data' in a and '.raw.fif' in a][0])
 				print eegfile
-				if self.isfilebad(eegfile, bad_files = bad_files):
+				if self.isfilebad(eegfile):
 					return False
 
 				self.eeg_filename = eegfile
@@ -277,7 +278,7 @@ class Analysis():
 
 		eegfile = os.path.join(reg_folder, [a for a in files if 'data' in a and self.extension in a][0])
 		print eegfile
-		if self.isfilebad(eegfile, bad_files = bad_files):
+		if self.isfilebad(eegfile):
 			return False
 		self.eeg_filename = eegfile
 
@@ -306,7 +307,8 @@ class Analysis():
 
 	def raw_filter(self): 
 		'''
-			Filter EEG in self.raw variable
+			Filter EEG in self.raw variable 
+			important -- read from npy files when refiltering -- TBD
 		'''
 		self.raw.filter(l_freq = None, h_freq = self.h_freq, picks = range(1,(len(self.channels)-1)), fir_design = 'firwin2')
 		self.raw.filter(l_freq = self.l_freq, h_freq = None, picks = range(1,(len(self.channels)-1)), fir_design = 'firwin2')
@@ -364,7 +366,7 @@ class Analysis():
 		evoked_aim = epochs['aim'].average()
 		evoked_non_aim = epochs['non_aim'].average()
 
-		# evoked_non_aim.plot_joint()
+		evoked_aim.plot_joint()
 
 		self.cc_non_aim_evoked[reg] +=len(epochs['non_aim'].events)
 		self.cc_aim_evoked[reg] +=len(epochs['aim'].events)		
@@ -389,26 +391,23 @@ class Analysis():
 		return evoked_aim, evoked_non_aim
 	
 	
-	def get_peaks_from_evoked(self, evoked_aim, evoked_non_aim, delta = False, p3average = [], n1average = []):
+	def get_peaks_from_evoked(self, evoked_aim, evoked_non_aim):
 		"""
 			Detect P300 and N1 peak ampltudes ans latencies
 
 		    Args:
 		        reg_folder (Evoked): Aim average waveforms
 		        evoked_non_aim (Evoked): non-aim average waveforms
-		        delta (bool): if True detect peaks in differential potentials
-		        p3average (list): limits of ep averaging (can be length of 2 or empty)
-		        n1average (list): limits of ep averaging (can be length of 2 or empty) 
 
 		    Returns:
 		       dict: p3peaks and n1peaks (for plotting) and peaks_dict (for statiscical analysis)
 		"""
-		if delta:
+		if self.delta:
 			evoked_aim.data-= evoked_non_aim.data
 		# print evoked_aim.data
 		# sys.exit()
-		p3peaks =  get_peaks(evoked_aim, ch_type='eeg', tmin = 0.25, tmax = 0.6, mode = 'pos', average_lims = p3average)
-		n1peaks =  get_peaks(evoked_aim, ch_type='eeg', tmin = 0.08, tmax = 0.25, mode = 'neg', average_lims = n1average)
+		p3peaks =  get_peaks(evoked_aim, ch_type='eeg', tmin = 0.25, tmax = 0.6, mode = 'pos', average_lims = self.p3average)
+		n1peaks =  get_peaks(evoked_aim, ch_type='eeg', tmin = 0.08, tmax = 0.25, mode = 'neg', average_lims = self.n1average)
 		# print p3peaks
 		peaks_dict = {}
 		for p in p3peaks.keys():
@@ -525,18 +524,21 @@ class Analysis():
 
 		with open('{}.pickle'.format(filename), 'wb') as file_obj:
 			pickle.dump(total_data_comp, file_obj)
-		print total_data_comp
-
+		
+		settings = {'lfreq':self.l_freq, 'hfreq':self.h_freq, 
+					'p3average':self.p3average, 'n1average':self.n1average, 
+					'bad_files':self.bad_files}
+		with open('{}.settings.txt'.format(filename), 'w') as file_obj:
+			file_obj.write(str(settings))		
 
 	
-	def user_analysis(self, user, plot = True, save_intermediate = True, bad_files = []):
+	def user_analysis(self, user, plot = True, save_intermediate = True):
 		"""
 			Main function for one user
 
 		    Args:
 		        user (str/int): user folder name
 		  		save_intermediate (bool): if True, save raw eeg files with events and applied filters to .fif files
-		  		bad_files	(list): list of files to reject (can be empty)
 		"""
 
 
@@ -549,9 +551,9 @@ class Analysis():
 		user_peak_data = {}
 
 		for reg in self.folders.keys():
-			isfilevalid = self.read_data_files(os.path.join(user_folder, self.folders[reg]), bad_files = bad_files, read_fif_if_possible = True)
+			isfilevalid = self.read_data_files(os.path.join(user_folder, self.folders[reg]), read_fif_if_possible = True)
 			if isfilevalid:
-				# self.raw.plot(block = True)
+				self.raw.plot(block = True)
 				if np.isclose(self.raw.info['highpass'], self.l_freq) and np.isclose(self.raw.info['lowpass'], self.h_freq): #default values for unfiltered data
 					pass
 				else:
@@ -562,11 +564,11 @@ class Analysis():
 						self.save_intermediate(reg_folder = os.path.join(user_folder, self.folders[reg]))
 
 
-				self.reject_eog_contaminated_events(plot_eog=False)
+				self.reject_eog_contaminated_events(plot_eog=True)
 				evoked_aim, evoked_non_aim = self.cut_and_average(reg)
 				user_data[reg] = {'aim':evoked_aim, 'non_aim':evoked_non_aim}
 
-				p3peaks, n1peaks, peaks_dict = self.get_peaks_from_evoked(evoked_aim, evoked_non_aim, 	delta = True)
+				p3peaks, n1peaks, peaks_dict = self.get_peaks_from_evoked(evoked_aim, evoked_non_aim)
 																										# p3average = [5, 6],
 																										# n1average = [1,2]
 																										# )
@@ -600,9 +602,13 @@ if __name__ == '__main__':
 					 '_data_noise__play_16_13__12_10.npy',  # alpha
 					 '_data_noise__play_16_29__25_11.npy']
 	bad_files = [a.split('.')[0] for a in bad_files]
+	bad_files = []
 	
 	Analysis = Analysis(data_folder = data_folder, session = 'play', interface_type = 'rowcol')
-	for user in [1,2,5,6,7,8,9,10,12,14,16,17]:
-		Analysis.user_analysis(user, plot = False, bad_files = bad_files)
+	Analysis.bad_files = bad_files
+	# Analysis.l_freq = 1
+	# for user in [1,2,5,6,7,8,9,10,12,14,16,17]:
+	for user in range(1,18):
+		Analysis.user_analysis(user, plot = False)
 	Analysis.grand_average()
 	Analysis.save_peak_data(filename='peaks_dot')

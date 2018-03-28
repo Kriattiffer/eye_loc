@@ -9,7 +9,7 @@
 
 
 import numpy as np
-# import pandas as pd
+import pandas as pd
 
 from scipy import stats
 import sys, itertools, pickle
@@ -39,6 +39,13 @@ def shapiro(data):
 if __name__ == '__main__':
 	with open('peaks_dot.pickle', 'rb') as file_obj:
 		total_data = pickle.load(file_obj)
+	eye_data = pd.DataFrame.from_csv('eye_measures_data.csv')
+	print eye_data
+	# sys.exit()
+	
+
+
+	# sys.exit()
 	print total_data
 	for channel in total_data.keys():
 		normality = shapiro(total_data[channel])
