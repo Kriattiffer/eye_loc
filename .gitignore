@@ -105,5 +105,10 @@ rescources/*
 rescources/stimuli/letters_table_black_faces_non_consp/
 rescources/stimuli/letters_table_black_faces/
 data/
+<<<<<<< HEAD
 experimental_data/
 exp/
+=======
+/analysis/pics
+experimental_data/
+>>>>>>> origin/master
