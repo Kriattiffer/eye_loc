@@ -54,21 +54,32 @@ if __name__ == '__main__':
 	
 	Analysis = Analysis(data_folder = data_folder, session = 'play', interface_type = 'rowcol')
 	Analysis.bad_files = bad_files
-	Analysis.read_fif_if_possible = True
-	Analysis.l_freq = 0.1
 
-	Analysis.folders = {'small_small': 'SS', 'large_large':'LL', 'large_small':'LS', 'small_large':'SL', 'medium': 'M'}
-	Analysis.plot_colors =  {'small_small': 'SS', 'large_large':'LL', 'large_small':'LS', 'small_large':'SL', 'medium': 'M', 'aim':'#e41a1c', 'non_aim':'#377eb8'}
+	Analysis.read_fif_if_possible = False
+	Analysis.l_freq = 1
+	Analysis.h_freq = 35
+
 	
+	Analysis.delta = False
+	Analysis.folders = {'small_small': 'SS', 'large_large':'LL', 'large_small':'LS', 'small_large':'SL', 'medium': 'M'}
+	Analysis.plot_colors.update({'small_small': 'red', 'large_large':'green', 'large_small':'blue', 'small_large':'yellow', 'medium': 'black'})
+	Analysis.legend_loc= (-1.5, 4.5)
 	Analysis.channels = ['time', 'oz', 'o1', 'o2', 'pz', 'p3', 'p4', 'cp1', 'cp2', 'cz', 'ecg', 'a2', 'stim']
-	Analysis.ch_types = ['misc', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'ecg', 'eeg', 'stim']
+	Analysis.ch_types = ['misc', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'ecg', 'misc', 'stim']
 	Analysis.reject_eog_artifacts = False
-	Analysis.show_raw_eeg = True
-	Analysis.aims = [Analysis.charset.index(a) for a in 'neuroscience_158'] #[0,5,36,41, 21]
+	Analysis.show_raw_eeg = False
+	Analysis.show_filtred_eeg = False
 
+	Analysis.aims = [Analysis.charset.index(a) for a in 'neuroscience_158'] #[0,5,36,41, 21]
+	
+	# Analysis.p3average = [2, 3]
+	# Analysis.n1average = [1,2]
+
+
+	Analysis.update_analysis_template()
 
 	# for user in [1,2,5,6,7,8,9,10,12,14,16,17]:
-	for user in range(1,18):
+	for user in range(1,17):
 		Analysis.user_analysis(user, plot = True)
 	Analysis.grand_average()
-	# Analysis.save_peak_data(filename='peaks')
+	Analysis.save_peak_data(filename='peaks_ap')

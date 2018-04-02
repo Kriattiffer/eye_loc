@@ -9,13 +9,15 @@
 
 import numpy as np
 from matplotlib import pyplot as plt
-import os, sys, pickle
+import os, sys, pickle, copy
 import time, datetime
+import warnings
+
 import mne
 
 
 mne.set_log_level('WARNING')
-
+warnings.filterwarnings("ignore", category=DeprecationWarning) 
 
 def aim_detector(stim_id, currrent_aim, interface_type = 'rowcol'):
 	def rowcol_aims(stim_id, currrent_aim):
@@ -196,14 +198,14 @@ class Analysis():
 	def __init__(self, data_folder, interface_type, session = 'play'):		
 		self.sfreq = 500
 		self.l_freq = 0.1
-		self.h_freq = 35
-		self.delta = True
+		self.h_freq = 35  
+		self.delta = False
 		self.p3average = []
 		self.n1average = []
 		self.bad_files = []
 
-		self.plot_colors =  {'Faces': 'red', 'Facesnoise':'green', 'Letters':'black', 'Noise':'blue', 'aim':'#e41a1c', 'non_aim':'#377eb8'}
-
+		self.plot_colors =  {'aim':'#e41a1c', 'non_aim':'#377eb8', 'delta':'black'}
+		self.legend_loc= (-1.5,0)
 		self.charset = [a for a in u'abcdefghijklmonpqrstuvwxyz_1234567890!@#$%^&*()+=-~[]{};:\"\|?.,/<>½¾¿±®©§£¥¢÷µ¬']
 		self.aims = [self.charset.index(a) for a in '@neuroscience!'] #[0,5,36,41, 21]
 		self.interface_type = interface_type
@@ -215,16 +217,22 @@ class Analysis():
 		self.folders = {'Faces': 'fcs', 'Facesnoise':'fn', 'Letters':'ltrs', 'Noise':'ns'}
 		
 		self.show_raw_eeg = False
+		self.show_filtred_eeg = False
+
 		self.session = session
 		self.extension = '.npy'
 		self.reject_eog_artifacts = True
 		self.read_fif_if_possible = True
 		
 		self.fix_folder_ecg_eog = []
-
+		self.test_stats = False
 		self.update_analysis_template()
 
 	def update_analysis_template(self):
+		'''
+			Update derivatives after changing class variables
+			need to be run when importing Analysis module.
+		'''
 		self.evoked_non_aim_saved_for_grand_average = {k:False for k in self.folders.keys()}
 		self.evoked_aim_saved_for_grand_average = {k:False for k in self.folders.keys()}
 		self.cc_non_aim_evoked = {f:0 for f in self.folders.keys()}
@@ -262,15 +270,14 @@ class Analysis():
 
 		   """
 
-		print reg_folder
 		if self.extension == 'txt':
 			np.load = np.genfromtxt
 		files = os.listdir(reg_folder)
-		files = [a for a in files if self.session in a]
+		files = [a for a in files if self.session.upper() in a.upper()]
 
 
 		if self.read_fif_if_possible:
-			if len([a for a in files if 'data' in a and '.raw.fif' in a]):
+			if len([a for a in files if 'data'.upper() in a.upper() and '.raw.fif'.upper() in a.upper()]):
 				self.events = np.load(os.path.join(reg_folder, 'selfevents.npy'))
 				eegfile = os.path.join(reg_folder, [a for a in files if 'DATA' in a.upper() and '.raw.fif'.upper() in a.upper()][0])
 				print eegfile
@@ -281,7 +288,6 @@ class Analysis():
 				self.raw = mne.io.read_raw_fif(eegfile)
 				self.raw.load_data()
 				return True
-
 
 		eegfile = os.path.join(reg_folder, [a for a in files if 'DATA' in a.upper() and self.extension.upper() in a.upper()][0])
 		print eegfile
@@ -371,6 +377,17 @@ class Analysis():
 		epochs = mne.Epochs(self.raw, events=self.events, event_id={'aim':2, 'non_aim':1}, tmin=-0.1, tmax=0.8, verbose = 'ERROR')
 		evoked_aim = epochs['aim'].average()
 		evoked_non_aim = epochs['non_aim'].average()
+		evoked_aim.apply_baseline(baseline = (0,0))
+		evoked_non_aim.apply_baseline(baseline = (0,0))
+
+
+		if self.test_stats:
+			mask = np.zeros(np.shape(evoked_aim.data))
+			plusmask = np.ones((np.shape(evoked_aim.data)[0], 50))
+			mask[:,150:200] = plusmask
+			evoked_aim.data += mask*0.5e-4
+			evoked_non_aim.data += mask*0.25e-4
+
 
 		# evoked_aim.plot_joint()
 
@@ -408,14 +425,14 @@ class Analysis():
 		    Returns:
 		       dict: p3peaks and n1peaks (for plotting) and peaks_dict (for statiscical analysis)
 		"""
+		evoked = copy.deepcopy(evoked_aim)
 		if self.delta:
-			evoked_aim.data-= evoked_non_aim.data
-		# print evoked_aim.data
+			evoked.data -= evoked_non_aim.data
 		# sys.exit()
-		p3peaks =  get_peaks(evoked_aim, ch_type='eeg', tmin = 0.25, tmax = 0.6, mode = 'pos', average_lims = self.p3average)
-		n1peaks =  get_peaks(evoked_aim, ch_type='eeg', tmin = 0.08, tmax = 0.25, mode = 'neg', average_lims = self.n1average)
+		p3peaks =  get_peaks(evoked, ch_type='eeg', tmin = 0.25, tmax = 0.6, mode = 'pos', average_lims = self.p3average)
+		n1peaks =  get_peaks(evoked, ch_type='eeg', tmin = 0.08, tmax = 0.25, mode = 'neg', average_lims = self.n1average)
 		# print p3peaks
-		peaks_dict = {}
+		peaks_dict = {'File':os.path.basename(self.eeg_filename)}
 		for p in p3peaks.keys():
 			peaks_dict
 			peaks_dict['p3a_{}'.format(p) ] = p3peaks[p][1]
@@ -428,7 +445,10 @@ class Analysis():
 
 
 
-	def plot_evoked_response(self, data = {}, p3peaks = {}, n1peaks = {}, fname = str(time.time()), p300_n1_aim_fill = True, peakdot = True):
+	def plot_evoked_response(	self, data = {}, p3peaks = {}, n1peaks = {}, fname = str(time.time()), 
+								p300_n1_aim_fill = True, peakdot = True
+
+								):
 		"""
 			plot topographic EP maps
 
@@ -440,49 +460,50 @@ class Analysis():
 		        peakdot (bool): if True plot P3 and N1 peak
 		        p300_n1_aim_fill (bool): if True, fill area around peaks
 		"""
-		def worker():
-			'''
-				function for threading // TBD
-			'''
-			fig = plt.figure(figsize=(16,9))
 
-			tpplt = [a for a in mne.viz.topo._iter_topography(	self.raw.info, layout = None, on_pick = None, fig = fig, layout_scale = 0.945,
-																fig_facecolor='white', axis_facecolor='white', axis_spinecolor='white')]
-			for ax, idx in tpplt:
+		fig = plt.figure(figsize=(16,9))
 
-				[ax.axvline(vl, color='black', linewidth=0.5, linestyle='--') for vl in [0, 0.1, 0.3]]
-				ax.axhline(0, color='black', linewidth=0.5)
+		tpplt = [a for a in mne.viz.topo._iter_topography(	self.raw.info, layout = None, on_pick = None, fig = fig, layout_scale = 0.945,
+															fig_facecolor='white', axis_facecolor='white', axis_spinecolor='white')]
+		for ch in range(len(tpplt)):
+			ax = tpplt[ch][0]
+			idx = tpplt[ch][1]
+
+			[ax.axvline(vl, color='black', linewidth=0.5, linestyle='--') for vl in [-0.1, 0, 0.1, 0.3]]
+			ax.axhline(0, color='black', linewidth=0.5)
 
 
-				idxc = idx - 4
+			for i in data.keys():
+				ax.plot(data[i].times, data[i].data[ch]*1.0e6, color=self.plot_colors[i], label = i)
 
-				for i in data.keys():
-					ax.plot(data[i].times, data[i].data[idxc]*1.0e6, color=self.plot_colors[i], label = i)
-				# ax.plot(evoked_aim.times, evoked_non_aim.data[idxc], color='', label = 'non_aim')
+			ax.set_title(data[data.keys()[0]].ch_names[ch])
+			# ax.plot(evoked_aim.times, evoked_non_aim.data[ch], color='', label = 'non_aim')
+			if self.delta and 'non_aim' in data.keys() and  'aim' in data.keys():
+				ax.plot(data['aim'].times, data['aim'].data[ch]*1.0e6-data['non_aim'].data[ch]*1.0e6, color=self.plot_colors['delta'], label = 'delta')
 
-				if peakdot:
-					p3p = p3peaks[self.channels[idx]]
-					n1p = n1peaks[self.channels[idx]]
-					ax.plot(p3p[0], p3p[1], 'o', color = 'black', zorder = 228)
 
-				if p300_n1_aim_fill:
-					fsection = [b for a, b in zip(data['aim'].times, data['aim'].data[idxc]*1.0e6) if a >= p3p[0]-0.05 and a < p3p[0]+0.05]
-					section = [a for a in data['aim'].times if a >=p3p[0]-0.05 and a <p3p[0]+0.05]
-					ax.fill_between(section, fsection, color = 'y', alpha = 0.6)
-					
-					if idxc in [15, 16, 17]:
-						ax.plot(n1p[0], n1p[1], 'o', color = 'black', zorder = 228)
-						fsection = [b for a, b in zip(data['aim'].times, data['aim'].data[idxc]*1.0e6) if a >= n1p[0]-0.015 and a < n1p[0]+0.015]
-						section = [a for a in data['aim'].times if a >=n1p[0]-0.015 and a <n1p[0]+0.015]
-						ax.fill_between(section, fsection, color = 'green', alpha = 0.6)
+			if peakdot:
+				p3p = p3peaks[self.channels[idx]]
+				n1p = n1peaks[self.channels[idx]]
+				ax.plot(p3p[0], p3p[1], 'o', color = 'black', zorder = 228)
 
-			legend = tpplt[0][0].legend( loc= (-1.5,0), prop={'size': 10})
-			# plt.show()
-			plt.savefig('./pics/{}.png'.format(fname),  dpi = 100)
-			plt.close()
-			return
+			if p300_n1_aim_fill:
+				fsection = [b for a, b in zip(data['aim'].times, data['aim'].data[ch]*1.0e6) if a >= p3p[0]-0.05 and a < p3p[0]+0.05]
+				section = [a for a in data['aim'].times if a >=p3p[0]-0.05 and a <p3p[0]+0.05]
+				ax.fill_between(section, fsection, color = 'y', alpha = 0.6)
+				
+				if data[data.keys()[0]].ch_names[ch] in ['oz', 'o1', 'o2']:
+					ax.plot(n1p[0], n1p[1], 'o', color = 'black', zorder = 228)
+					fsection = [b for a, b in zip(data['aim'].times, data['aim'].data[ch]*1.0e6) if a >= n1p[0]-0.015 and a < n1p[0]+0.015]
+					section = [a for a in data['aim'].times if a >=n1p[0]-0.015 and a <n1p[0]+0.015]
+					ax.fill_between(section, fsection, color = 'green', alpha = 0.6)
 
-		worker()
+		legend = tpplt[0][0].legend( loc= self.legend_loc, prop={'size': 10})
+		# plt.show()
+		plt.savefig('./pics/{}.png'.format(fname),  dpi = 100)
+		plt.close()
+		return
+
 		
 
 
@@ -557,7 +578,6 @@ class Analysis():
 		user_peak_data = {}
 
 		for reg in self.folders.keys():
-			print reg
 			isfilevalid = self.read_data_files(os.path.join(user_folder, self.folders[reg]))
 			if isfilevalid:
 				if self.show_raw_eeg:
@@ -567,6 +587,8 @@ class Analysis():
 				else:
 					print 'filtering'
 					self.raw_filter()
+					if self.show_filtred_eeg:
+						self.raw.plot(block = True)
 					if save_intermediate:
 						print 'saving'
 						self.save_intermediate(reg_folder = os.path.join(user_folder, self.folders[reg]))
@@ -616,11 +638,14 @@ if __name__ == '__main__':
 	Analysis = Analysis(data_folder = data_folder, session = 'play', interface_type = 'rowcol')
 	Analysis.bad_files = bad_files
 	Analysis.read_fif_if_possible = True
+	Analysis.delta = True
 	Analysis.l_freq = 1
 	Analysis.fix_folder_ecg_eog = ['3']
 	Analysis.show_raw_eeg = False
+	Analysis.plot_colors.update({'Faces': 'red', 'Facesnoise':'green', 'Letters':'black', 'Noise':'blue'})
 	# for user in [1,2,5,6,7,8,9,10,12,14,16,17]:
+	Analysis.test_stats = False
 	for user in range(1,18):
 		Analysis.user_analysis(user, plot = True)
 	Analysis.grand_average()
-	Analysis.save_peak_data(filename='peaks')
+	Analysis.save_peak_data(filename='peaks_av')

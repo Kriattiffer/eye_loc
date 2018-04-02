@@ -97,6 +97,7 @@ _*
 *.out
 *.cls
 *.bat
+*.pickle
 desktop.ini
 Thumbs.db
 aims_play.txt
