@@ -14,11 +14,11 @@ import numpy as np
 import present
 from pylsl import StreamInlet, resolve_stream
 
-###REDACTED###
+
 class CCalibrationPointStruct(Structure):
     _fields_=[('number', c_int),('positionX', c_int),('positionY', c_int)]
 calibrationPoint=CCalibrationPointStruct(0,0,0)
-###REDACTED###
+
 
 def create_stream(stream_name_markers = 'CycleStart', recursion_meter = 0, max_recursion_depth = 3):
         ''' Opens LSL stream for markers, If error, tries to reconnect several times'''
@@ -62,7 +62,6 @@ class Eyetracker():
             if debug != True:
                 self.exit_()
 
-    ###REDACTED###
     def get_calibration_point(self, number):
         'updates calibrationPoint data structure'
         self.res=iViewXAPI.iV_GetCalibrationPoint(number, byref(calibrationPoint))
@@ -75,7 +74,6 @@ class Eyetracker():
         drx=accuracyData.deviationRX
         dry=accuracyData.deviationRY
         return np.mean([dlx,drx]), np.mean([dly, dry])
-    ###REDACTED###
 
     def  calibrate(self):
         '''configure and start calibration'''
@@ -98,15 +96,13 @@ class Eyetracker():
         self.res = iViewXAPI.iV_SetupCalibration(byref(calibrationData))
         print "iV_SetupCalibration " + str(self.res)
 
-        ###REDACTED###
-        #new_positions= [(841,526),(196,137), (1374, 148),(204,933), (1382,920), (210, 532), (832,143), (1392, 517), (861, 920)]
-        new_positions= [(840, 525),(280,60), (280, 990), (1400, 60), (1400,990), (280, 525), (840, 525), (840, 60), (840, 990)]
+        new_positions= [(841,526),(196,137), (1374, 148),(204,933), (1382,920), (210, 532), (832,143), (1392, 517), (861, 920)]
+        #new_positions= [(840, 525),(280,60), (280, 990), (1400, 60), (1400,990), (280, 525), (840, 525), (840, 60), (840, 990)]
         #for i in range(1,10,1):
             #self.get_calibration_point(i)
             #print calibrationPoint.positionX, calibrationPoint.positionY
         for i in range(len(new_positions)):
             self.res=iViewXAPI.iV_ChangeCalibrationPoint(i+1,new_positions[i][0], new_positions[i][1]) # new coordinates for calibration points
-        ###REDACTED###
 
         self.res = iViewXAPI.iV_Calibrate()
         print   "iV_Calibrate " + str(self.res)
@@ -158,15 +154,14 @@ class Eyetracker():
         self.connect_to_iView()
         self.calibrate()
         #self.validate()
-        ###REDACTED###
         for i in range(3):
-            self.validate()
+            self.validate() # validate 3 times, then show mean deviations
             x,y =self.get_accuracy()
             accuracy_x.append(x)
             accuracy_y.append(y)  
         print 'Mean deviation x (deg): ', np.mean(accuracy_x)
         print 'Mean deviation y (deg): ', np.mean(accuracy_y)
-        ###REDACTED###
+
         self.namespace.EYETRACK_CALIB_SUCCESS = True
         self.experiment_loop()
 
