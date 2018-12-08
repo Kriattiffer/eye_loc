@@ -15,7 +15,6 @@ import warnings
 
 import mne
 
-
 mne.set_log_level('WARNING')
 warnings.filterwarnings("ignore", category=DeprecationWarning) 
 
@@ -52,8 +51,12 @@ def aim_detector(stim_id, currrent_aim, interface_type = 'rowcol'):
 	elif interface_type == 'simple':
 		return simple_aims(stim_id, currrent_aim)
 
-def create_events(eeg, evt, aims, interface_type):
-	letter_fragments = np.split(evt, np.where(evt[:,1] == 777.)[0])[1:][5:]
+def create_events(eeg, evt, aims, interface_type, skip_n = 5):
+	letter_fragments = np.split(evt, np.where(evt[:,1] == 777.)[0])[1:]
+	if skip_n:
+		letter_fragments = 	letter_fragments[skip_n:]
+	else:
+		pass
 	aims_loc = []
 	nonaims_loc = []
 	cc = 0
@@ -199,18 +202,20 @@ class Analysis():
 		self.sfreq = 500
 		self.l_freq = 0.1
 		self.h_freq = 35  
-		self.delta = False
+		self.delta = True
 		self.p3average = []
 		self.n1average = []
 		self.bad_files = []
 
+		self.aim_word = '@neuroscience!'
 		self.plot_colors =  {'aim':'#e41a1c', 'non_aim':'#377eb8', 'delta':'black'}
+		self.dashlist={'aim':(), 'non_aim':(), 'delta':()}
 		self.legend_loc= (-1.5,0)
 		self.charset = [a for a in u'abcdefghijklmonpqrstuvwxyz_1234567890!@#$%^&*()+=-~[]{};:\"\|?.,/<>½¾¿±®©§£¥¢÷µ¬']
-		self.aims = [self.charset.index(a) for a in '@neuroscience!'] #[0,5,36,41, 21]
+		self.aims = [self.charset.index(a) for a in self.aim_word] #[0,5,36,41, 21]
 		self.interface_type = interface_type
 
-		self.channels = ['time', "eyes","ecg",   "a2","f3","fz","f4","c5","p7","c3","cz","c4","c6","cp1","cp2","p3","pz","p4","p8","o1","oz","o2", 'stim']
+		self.channels = ['time', "eyes","ecg",   "a2","f3","fz","f4","c5","po7","c3","cz","c4","c6","cp1","cp2","p3","pz","p4","po8","o1","oz","o2", 'stim']
 		self.ch_types = ['misc', 'eog', 'ecg', 'misc']+ ['eeg']*18 + ['stim']
 
 		self.data_folder = data_folder
@@ -221,7 +226,7 @@ class Analysis():
 
 		self.session = session
 		self.extension = '.npy'
-		self.reject_eog_artifacts = True
+		self.reject_eog_artifacts = False
 		self.read_fif_if_possible = True
 		
 		self.fix_folder_ecg_eog = []
@@ -297,13 +302,15 @@ class Analysis():
 
 		evtfile = os.path.join(reg_folder, [a for a in files if 'EVENTS' in a.upper() and self.extension.upper() in a.upper()][0])
 		evt2file = os.path.join(reg_folder, [a for a in files if 'PHOTOCELL' in a.upper() and self.extension.upper() in a.upper()][0])
-		# aimfile = os.path.join(reg_folder, [a for a in files if 'aims' in a][0])
+		#aimfile = os.path.join(reg_folder, [a for a in files if 'aims' in a][0])
 		eeg = np.load(eegfile).T
 		eeg = np.vstack( (eeg, np.zeros(np.shape(eeg)[1])) ) # add stim channel
 
 		evt = np.load(evtfile)
 		evt2 = np.load(evt2file)
-		self.events = create_events(eeg, evt, self.aims, self.interface_type)
+		# print reg_folder
+
+		self.events = create_events(eeg, evt, self.aims, self.interface_type, skip_n = 5)
 		
 		if self.fix_folder_ecg_eog:
 			if os.path.dirname(eegfile).split('\\')[-2] in self.fix_folder_ecg_eog:				#Ugly fix for electrode placement error for user 3
@@ -374,8 +381,32 @@ class Analysis():
 		    Returns:
 		        mne.Evoked: evoked_aim and evoked_non_aim average waveforms
 		"""
-		epochs = mne.Epochs(self.raw, events=self.events, event_id={'aim':2, 'non_aim':1}, tmin=-0.1, tmax=0.8, verbose = 'ERROR')
+		print len(self.events)
+		reject = dict(eeg=0.001)
+		# reject = None
+
+		epochs = mne.Epochs(self.raw, events=self.events, event_id={'aim':2, 'non_aim':1}, tmin=-0.1, tmax=1, verbose = 'ERROR', reject = reject)
+		epochs.drop_bad()
+		print([a for a in epochs.drop_log if a !=[]])
+
+		# self.raw.plot(events=self.events, block = True, n_channels = 2, duration = 2,  order = [4, 19, 1,2,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,21,20,22], scalings =  dict(eeg=20e-4))  # To see the annotated segments.
+		epochs.load_data()
+		epochs = epochs.apply_baseline(baseline = (0,0))
+
+		# print np.shape(epochs['aim']._data)
+		# plt.plot(epochs['aim']._data[:,19,:].T)
+		# print np.shape(epochs['aim']._data[:,19,:].T)
+		# #plt.plot(epochs['aim']._data[:,12,:].T)
+		# plt.plot(np.average(epochs['aim']._data[:,19,:].T, axis = 1), linewidth = 3, color = 'black')
+		# #plt.plot(np.average(epochs['aim']._data[:,12,:].T, axis = 1), linewidth = 3, color = 'black')
+		# plt.axvline(x=50)
+		# plt.suptitle('{}.png'.format(self.user))
+		# plt.savefig('{}.png'.format(self.user), dpi=800)
+		# plt.show()
+		# plt.clf()
+
 		evoked_aim = epochs['aim'].average()
+		# evoked_aim.plot_joint()
 		evoked_non_aim = epochs['non_aim'].average()
 		evoked_aim.apply_baseline(baseline = (0,0))
 		evoked_non_aim.apply_baseline(baseline = (0,0))
@@ -389,8 +420,9 @@ class Analysis():
 			evoked_non_aim.data += mask*0.25e-4
 
 
-		# evoked_aim.plot_joint()
-
+		# d = evoked_aim.plot_joint((0.0))
+		# d.savefig('./pics/' + os.path.basename(self.eeg_filename) + '.png')
+		# epochs.plot(block=True, picks = [19])
 		self.cc_non_aim_evoked[reg] +=len(epochs['non_aim'].events)
 		self.cc_aim_evoked[reg] +=len(epochs['aim'].events)		
 
@@ -410,7 +442,6 @@ class Analysis():
 			self.evoked_aim_saved_for_grand_average[reg].data * len(epochs['aim'].events)
 		
 
-		
 		return evoked_aim, evoked_non_aim
 	
 	
@@ -431,13 +462,12 @@ class Analysis():
 		# sys.exit()
 		p3peaks =  get_peaks(evoked, ch_type='eeg', tmin = 0.25, tmax = 0.6, mode = 'pos', average_lims = self.p3average)
 		n1peaks =  get_peaks(evoked, ch_type='eeg', tmin = 0.08, tmax = 0.25, mode = 'neg', average_lims = self.n1average)
-		# print p3peaks
 		peaks_dict = {'File':os.path.basename(self.eeg_filename)}
 		for p in p3peaks.keys():
 			peaks_dict
 			peaks_dict['p3a_{}'.format(p) ] = p3peaks[p][1]
 			peaks_dict['p3i_{}'.format(p) ] = p3peaks[p][0]
-			if p in ["p7", "p8","o1","oz","o2"]:
+			if p in ["po7", "po8","o1","oz","o2"]:
 				peaks_dict['n1a_{}'.format(p) ] = n1peaks[p][1]
 				peaks_dict['n1i_{}'.format(p) ] = n1peaks[p][0]
 		
@@ -447,8 +477,7 @@ class Analysis():
 
 	def plot_evoked_response(	self, data = {}, p3peaks = {}, n1peaks = {}, fname = str(time.time()), 
 								p300_n1_aim_fill = True, peakdot = True
-
-								):
+							):
 		"""
 			plot topographic EP maps
 
@@ -469,17 +498,16 @@ class Analysis():
 			ax = tpplt[ch][0]
 			idx = tpplt[ch][1]
 
-			[ax.axvline(vl, color='black', linewidth=0.5, linestyle='--') for vl in [-0.1, 0, 0.1, 0.3]]
+			[ax.axvline(vl, color='black', linewidth=0.5, linestyle='--') for vl in [0, 0.1, 0.3]]
 			ax.axhline(0, color='black', linewidth=0.5)
 
 
 			for i in data.keys():
-				ax.plot(data[i].times, data[i].data[ch]*1.0e6, color=self.plot_colors[i], label = i)
+				ax.plot(data[i].times, data[i].data[ch]*1.0e6, color=self.plot_colors[i], label = i) #dashes=self.dashlist[i], 
 
 			ax.set_title(data[data.keys()[0]].ch_names[ch])
-			# ax.plot(evoked_aim.times, evoked_non_aim.data[ch], color='', label = 'non_aim')
 			if self.delta and 'non_aim' in data.keys() and  'aim' in data.keys():
-				ax.plot(data['aim'].times, data['aim'].data[ch]*1.0e6-data['non_aim'].data[ch]*1.0e6, color=self.plot_colors['delta'], label = 'delta')
+				ax.plot(data['aim'].times, data['aim'].data[ch]*1.0e6-data['non_aim'].data[ch]*1.0e6, dashes=self.dashlist['delta'], color=self.plot_colors['delta'], label = 'delta')
 
 
 			if peakdot:
@@ -500,7 +528,8 @@ class Analysis():
 
 		legend = tpplt[0][0].legend( loc= self.legend_loc, prop={'size': 10})
 		# plt.show()
-		plt.savefig('./pics/{}.png'.format(fname),  dpi = 100)
+		print'./pics/{}.png'.format(fname)
+		plt.savefig('./pics/{}.png'.format(fname),  dpi = 400)
 		plt.close()
 		return
 
@@ -517,13 +546,21 @@ class Analysis():
 			self.evoked_aim_saved_for_grand_average[k].data = interm
 
 
+
+			interm2 = self.evoked_non_aim_saved_for_grand_average[k].data
+			interm2 /= self.cc_non_aim_evoked[k]
+			self.evoked_non_aim_saved_for_grand_average[k].data = interm2
+
+			#print k	
+			# self.evoked_non_aim_saved_for_grand_average[k].plot_joint((0.17, 0.3))
+
+			if self.delta:
+				self.evoked_aim_saved_for_grand_average[k].data -= interm2
+
 		self.plot_evoked_response(	{k:self.evoked_aim_saved_for_grand_average[k] for k in self.evoked_aim_saved_for_grand_average.keys()},
 									p300_n1_aim_fill = False, peakdot = False,
 									fname = '_ga')
 
-
-
-		# print self.evoked_aim_saved_for_grand_average['Noise'].data
 	
 	def save_peak_data(self, filename = 'peaks'):
 		'''
@@ -539,7 +576,6 @@ class Analysis():
 		regs = self.folders.keys()
 
 		total_data_comp = {a:{b:[] for b in regs} for a in channels}
-		print self.total_data
 		for user in users:
 			for reg in regs:
 				for channel in channels:
@@ -557,8 +593,13 @@ class Analysis():
 					'bad_files':self.bad_files, 'delta': self.delta}
 		with open('{}.settings.txt'.format(filename), 'w') as file_obj:
 			file_obj.write(str(settings))		
-
 	
+	def user_delta_func(self, evoked):
+		evoked2 = evoked
+		if self.delta:
+			evoked2['aim'].data -= evoked['non_aim'].data
+		return evoked2
+
 	def user_analysis(self, user, plot = True, save_intermediate = True):
 		"""
 			Main function for one user
@@ -570,10 +611,9 @@ class Analysis():
 
 
 		peaks = []
-
+		self.user = user
 		
 		user_folder =  os.path.join(self.data_folder, str(user))
-		# user_data = {'user':user}
 		user_data = {}
 		user_peak_data = {}
 
@@ -588,13 +628,14 @@ class Analysis():
 					print 'filtering'
 					self.raw_filter()
 					if self.show_filtred_eeg:
-						self.raw.plot(block = True)
+						self.raw.plot(block = True, events  = self.events)
 					if save_intermediate:
 						print 'saving'
 						self.save_intermediate(reg_folder = os.path.join(user_folder, self.folders[reg]))
 
 				if self.reject_eog_artifacts:
 					self.reject_eog_contaminated_events()
+				
 				evoked_aim, evoked_non_aim = self.cut_and_average(reg)
 				user_data[reg] = {'aim':evoked_aim, 'non_aim':evoked_non_aim}
 
@@ -609,43 +650,64 @@ class Analysis():
 											p3peaks = p3peaks, n1peaks = n1peaks, 
 											fname = '{}_{}'.format(user, reg))
 		if plot:
-			self.plot_evoked_response(	{k:user_data[k]['aim'] for k in user_data.keys()},
+			self.plot_evoked_response(	{k:self.user_delta_func(user_data[k])['aim'] for k in user_data.keys()},
 									p300_n1_aim_fill = False, peakdot = False,
 									
 									fname = '_{}'.format(user))
 
 		self.total_data[str(user)] = user_peak_data
-		# sys.exit()
 
 
 
 if __name__ == '__main__':
-	# data_folder = 'D:/Data/20!8_winter_faces/exp'
+	# data_folder = 'D:/Data/20!8_winter_faces/exp'B
 	data_folder = r'..\exp\valid'
+	#data_folder = r'./pt_1'
 	
-	bad_files = 	['_data_facesnoise__play_14_19__31_10.npy',  # low freq
-					 '_data_faces__play_16_13_b_22_11.npy',  # low freq
-					 '_data_faces__play_14_33__31_10.npy',  # low freq
-					 '_data_faces__play_16_26__12_10.npy',  # alpha
-					 '_data_faces__play_15_10__01_11.npy',  # alpha
-					 '_data_faces__play_16_17__25_11.npy',  # alpha
-					 '_data_letters__play_14_05__31_10.npy',  # low freq
-					 '_data_noise__play_16_13__12_10.npy',  # alpha
-					 '_data_noise__play_16_29__25_11.npy']
-	bad_files = [a.split('.')[0] for a in bad_files]
+	# bad_files = 	['_data_facesnoise__play_14_19__31_10.npy',  # low freq
+	# 				 '_data_faces__play_16_13_b_22_11.npy',  # low freq
+	# 				 '_data_faces__play_14_33__31_10.npy',  # low freq
+	# 				 '_data_faces__play_16_26__12_10.npy',  # alpha
+	# 				 '_data_faces__play_15_10__01_11.npy',  # alpha
+	# 				 '_data_faces__play_16_17__25_11.npy',  # alpha
+	# 				 '_data_letters__play_14_05__31_10.npy',  # low freq
+	# 				 '_data_noise__play_16_13__12_10.npy',  # alpha
+	# 				 '_data_noise__play_16_29__25_11.npy']
+	# bad_files = [a.split('.')[0] for a in bad_files]
 	bad_files = []
 	
 	Analysis = Analysis(data_folder = data_folder, session = 'play', interface_type = 'rowcol')
+
+	Analysis.aim_word = '@neuroscience!'
+
 	Analysis.bad_files = bad_files
-	Analysis.read_fif_if_possible = True
+	Analysis.read_fif_if_possible = False
 	Analysis.delta = True
-	Analysis.l_freq = 1
+	Analysis.l_freq = 0.1
 	Analysis.fix_folder_ecg_eog = ['3']
+
 	Analysis.show_raw_eeg = False
+	Analysis.show_filtred_eeg = False
+
 	Analysis.plot_colors.update({'Faces': 'red', 'Facesnoise':'green', 'Letters':'black', 'Noise':'blue'})
 	# for user in [1,2,5,6,7,8,9,10,12,14,16,17]:
 	Analysis.test_stats = False
-	for user in range(1,18):
+
+
+	# Analysis.show_raw_eeg = True
+	# Analysis.show_filtred_eeg = True
+
+
+
+	# Analysis.channels = ['time', "eyes","ecg",   "a2",  "f3","fz","f4","c5","po7","c3","cz","c4","c6","cp1","cp2","p3","pz","p4","po8","o1","oz","o2", 'p5', 'p6', 'p7', 'p8', 'tp7', 'tp8', 'stim']
+
+	# Analysis.ch_types = ['misc', 'eog', 'ecg', 'misc']+ ['eeg']*24 + ['stim']
+
+	#Analysis.user_analysis(plot = True)
+	#sys.exit()
+
+
+	for user in [1,2,4,5,6,7,8,9,11,12,13,14,15,16,17,18,19,20,21,22]:
 		Analysis.user_analysis(user, plot = True)
 	Analysis.grand_average()
 	Analysis.save_peak_data(filename='peaks_av')

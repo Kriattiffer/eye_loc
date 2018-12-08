@@ -56,6 +56,8 @@ class ENVIRONMENT():
 			self.textsize = None
 		
 		self.LSL = create_lsl_outlet() # create outlet for sync
+		# import serial
+		# self.ser = serial.Serial(18, 2000000, timeout=0) # Establish the connection on a specific port
 		core.wait(0.1)		
 
 	def build_gui(self, stimuli_number = False, 
@@ -104,11 +106,13 @@ class ENVIRONMENT():
 		active_stims  = active_stims
 		non_active_stims  = non_active_stims
 
+		# active_stims, non_active_stims = non_active_stims, active_stims
+
 		self.textarea = visual.TextStim(self.win, text = u'', rgb = '#3e4147', pos = (0,0.97), alignVert = 'top', alignHoriz = 'center',
 										height = self.textsize)
 		self.textarea.autoDraw = True
-		self.photocell = visual.Rect(self.win, width=0.1, height=0.2, fillColor = 'black', lineWidth = 0)
-		self.photocell.pos = [0.95,0.9]
+		self.photocell = visual.Rect(self.win, width=0.03, height=0.05, fillColor = 'white', lineWidth = 0)
+		self.photocell.pos = [0.92,0.83]
 		self.photocell.autoDraw = True
 
 		# position circles over board. units are taken from the create_circle function
@@ -133,7 +137,8 @@ class ENVIRONMENT():
 		'''
 
 		self.LSL.push_sample([self.stim_ind.index(stim)],  pushthrough = True) # push marker immdiately after first bit of the sequence
-	
+		# self.ser.write('1')
+
 	def wait_for_event(self, key = 'LMB', wait = True, timer = 1):
 		''' 
 			Wait for all process flags, to ansure that the experiment dosen't start too early.
@@ -196,6 +201,8 @@ class ENVIRONMENT():
 				# print a, self.stim_ind.index(a), aim, aim in a
 				# first bit of sequence and marker
 				self.win.callOnFlip(self.sendTrigger, stim = a)
+				# print seq
+				# print seq[1:]
 				self.draw_screen(a,0)
 
 				# other bits of sequence
@@ -241,6 +248,7 @@ class ENVIRONMENT():
 				Change cell state to active for some time.
 				Arguments:
 				cell	int	cell ID
+
 				displaytime int	time to keep cell active
 					default: 2
 			'''
@@ -383,15 +391,15 @@ class emptyclass():
 	config = './configs/letters.bcicfg.py'
 	# config = './configs/faces.bcicfg.py'
 	# config = './configs/noise.bcicfg.py'
-	# config = './configs/facesnoise.bcicfg.py'
+	config = './configs/facesnoise.bcicfg.py'
 	# config='./configs/gb.bcicfg_big.py'
 	#config='./configs/gb.bcicfg.py'
 
 	#differnt sizes and intervals
-	# config='./configs/gb_LARGE_STIMS.bcicfg.py'
-	# config='./configs/gb_SMALL_STIMS.bcicfg.py'
-	#config='./configs/gb_SMALL_STIMS_LARGE_MATRIX.bcicfg.py'
-	# config='./configs/gb_LARGE_STIMS_LARGE_MATRIX.bcicfg.py'
+	#config='./configs/gb_LARGE_STIMS.bcicfg.py'
+	#config='./configs/gb_SMALL_STIMS.bcicfg.py'
+	# config='./configs/gb_SMALL_STIMS_LARGE_MATRIX.bcicfg.py'
+	#config='./configs/gb_LARGE_STIMS_LARGE_MATRIX.bcicfg.py'
 	# config='./configs/gb_MEDIUM.bcicfg.py'
 
 
@@ -415,4 +423,4 @@ if __name__ == '__main__':
 	ENV.build_gui(monitor = mymon, screen = 1)#, stimuli_number = 25)
 	# ENV.textarea.text = 'sdfgfgfgfgfgfgfgfgfgfgfgfgfgfgfgs'
 
-	ENV.run_exp(stim_duration_FRAMES = 9, ISI_FRAMES = 3, repetitions = 10, waitforS = False)
+	ENV.run_exp(stim_duration_FRAMES = 5, ISI_FRAMES = 9, repetitions = 200, waitforS = False)

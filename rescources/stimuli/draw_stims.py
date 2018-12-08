@@ -30,7 +30,7 @@ Vivid Reddish Orange
 Dark Olive Green'''
 
 stimlist = [str(a) for a in range(32)]
-stimlist = [a for a in u'abcdefghijklmonpqrstuvwxyz_1234567890!@#$%^&*()+=-~[]{};:\"\|?.,/<>½¾¿±®©§£¥¢÷µ¬']
+stimlist = [a for a in u'АБВГДЕЖЗИКЛМНОПРСТУФХЦЧШЪЁЫЭЮЯЙЩЬ!@#$%^&*()+=-~[]{};:\"\|?.,/<>½¾¿±®©§£¥¢÷µ¬']
 # stim_colors = ['red']*len(stimlist)
 stim_colors = ['#505050']*len(stimlist)
 
@@ -39,10 +39,10 @@ stim_colors = ['#505050']*len(stimlist)
 # stim_colors = kelly_colors_hex
 
 
-imgsize = (200,200)
-textpos = 30, -5
-# fnt = ImageFont.truetype("arial.ttf", 200)
-fnt = ImageFont.truetype("Inconsolata-Regular.ttf", 90)
+imgsize = (1920,1080)
+textpos = 600, 0
+fnt = ImageFont.truetype("arial.ttf", 1000)
+# fnt = ImageFont.truetype("Inconsolata-Regular.ttf", 1000)
 
 
 ################################################################
@@ -105,6 +105,6 @@ def draw_circles():
 
 
 # pics = draw_circles()
-# pics = draw_text(stimlist)
-pics = draw_text_nchat(stimlist)
+pics = draw_text(stimlist)
+# pics = draw_text_nchat(stimlist)
 save_stims(pics)

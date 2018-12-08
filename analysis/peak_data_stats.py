@@ -31,7 +31,7 @@ def corr(data):
 	for channel1 in channels:
 		for channel2 in channels:
 			if channel1 != channel2:
-				for regs in data[channel1].keys():
+				for reg in data[channel1].keys():
 					# print data[channel1][reg]
 					st = stats.kendalltau(data[channel1][reg], data[channel2][reg])
 					if st.pvalue < 0.05/(len(channels)**2):
@@ -64,12 +64,14 @@ def pairwise (total_data, stats = False, norm = False):
 if __name__ == '__main__':
 	with open('peaks_av.pickle', 'rb') as file_obj:
 		total_data = pickle.load(file_obj)
-	eye_data = True
+		print np.std(total_data['p3a_pz']['Letters'])
+	sys.exit()
+	eye_data = False
 	if eye_data:
 		flist =  [a for a in total_data['File']]#.split('.')[0]]
 		eye_data = pd.read_csv('eye_measures_data.csv')
-		eye_data['User'] = [int(a.split('-')[0]) for a in eye_data['File']]
-		eye_data['Reg'] = [a.split('-')[1].split('_')[0].capitalize() for a in eye_data['File']]
+		eye_data['User'] = [int(a) for a in eye_data['participant']]
+		eye_data['Reg'] = [a.split('_')[0].capitalize() for a in eye_data['File']]
 		eye_data =  eye_data.sort_values(by=['User'])
 		for col in eye_data.columns:
 			if col not in ['File', 'User', 'Reg', 'Unnamed: 0']:

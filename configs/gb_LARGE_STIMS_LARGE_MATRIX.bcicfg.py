@@ -8,7 +8,7 @@ step_vert = 160
 step_horiz = 160
 
 names = [a for a in u'abcdefghijklmonpqrstuvwxyz_1234567890!@#$%^&*()+=-~[]{};:\"\|?.,/<>½¾¿±®©§£¥¢÷µ¬']
-aim_word = 'neuroscience_158'
+aim_word = 'neuroscience'
 rows = [list(a) for a in np.arange(r*c).reshape((c,r)).T]
 columns = [list(a) for a in np.arange(r*c).reshape((c,r))] 
 posr = [80 - step_horiz* (len(rows)/2- a) for a in range(r)]

@@ -113,3 +113,8 @@ exp/
 /analysis/pics
 experimental_data/
 >>>>>>> origin/master
+*.xlsx
+*.csv
+answers_*
+*npy
+*settings.txt

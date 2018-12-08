@@ -37,7 +37,7 @@ def aim_detector(stim_id, currrent_aim, interface_type = 'rowcol'):
 		return False
 
 	if interface_type == 'rowcol':
-		return rowcol_aims(stim_id, currrent_aim)
+		return rowcol_aims(stim_id, './pics/{}.png'.format(fname))
 	elif interface_type == 'simple':
 		return simple_aims(stim_id, currrent_aim)
 
@@ -46,7 +46,8 @@ def aim_detector(stim_id, currrent_aim, interface_type = 'rowcol'):
 
 if __name__ == '__main__':
 	# data_folder = 'D:/Data/20!8_winter_faces/exp'
-	data_folder = r'..\experimental_data\ann\BCI_EYE_anna_p\valid_eeg_anal'
+	#data_folder = r'..\experimental_data\ann\BCI_EYE_anna_p\valid_eeg_anal'
+	data_folder = r'..\experimental_data\prac2018'
 	
 	# bad_files = 	[]
 	# bad_files = [a.split('.')[0] for a in bad_files]
@@ -60,17 +61,25 @@ if __name__ == '__main__':
 	Analysis.h_freq = 35
 
 	
-	Analysis.delta = False
-	Analysis.folders = {'small_small': 'SS', 'large_large':'LL', 'large_small':'LS', 'small_large':'SL', 'medium': 'M'}
-	Analysis.plot_colors.update({'small_small': 'red', 'large_large':'green', 'large_small':'blue', 'small_large':'yellow', 'medium': 'black'})
+	Analysis.delta = True
+	#Analysis.folders = {'small_small': 'SS', 'large_large':'LL', 'large_small':'LS', 'small_large':'SL', 'medium': 'M'}
+	#Analysis.folders = {'small_small': 'SS', 'large_small':'LS'}
+	Analysis.folders = {'large_small':'LS'}
+	#Analysis.plot_colors.update({'small_small': 'red', 'large_small':'blue'})
+	Analysis.plot_colors.update({'large_small':'blue'})
+	#Analysis.plot_colors.update({'small_small': 'red', 'large_large':'green', 'large_small':'blue', 'small_large':'yellow', 'medium': 'black'})
+	#Analysis.dashlist.update({'small_small': (), 'large_large':(), 'large_small':(), 'small_large':(3,1), 'medium': (1,1)})
+	#Analysis.plot_colors.update({'small_small': 'black', 'large_large':'gray', 'large_small':'lightgray', 'small_large':'gray', 'medium': 'gray'})
 	Analysis.legend_loc= (-1.5, 4.5)
 	Analysis.channels = ['time', 'oz', 'o1', 'o2', 'pz', 'p3', 'p4', 'cp1', 'cp2', 'cz', 'ecg', 'a2', 'stim']
 	Analysis.ch_types = ['misc', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'eeg', 'ecg', 'misc', 'stim']
 	Analysis.reject_eog_artifacts = False
-	Analysis.show_raw_eeg = False
-	Analysis.show_filtred_eeg = False
+	Analysis.show_raw_eeg = True
+	Analysis.show_filtred_eeg = True
+	Analysis.test_stats = False
 
-	Analysis.aims = [Analysis.charset.index(a) for a in 'neuroscience_158'] #[0,5,36,41, 21]
+
+	Analysis.aims = [Analysis.charset.index(a) for a in 'neuroscience'] #[0,5,36,41, 21]
 	
 	# Analysis.p3average = [2, 3]
 	# Analysis.n1average = [1,2]
@@ -78,8 +87,13 @@ if __name__ == '__main__':
 
 	Analysis.update_analysis_template()
 
-	# for user in [1,2,5,6,7,8,9,10,12,14,16,17]:
-	for user in range(1,17):
+	#for user in [7]:
+
+	#for user in [1,2,3,4,6,7,8,9]:
+	#for user in range(1,11): ### PARTICIPANTS HERE!
+	for user in [2]:
 		Analysis.user_analysis(user, plot = True)
-	Analysis.grand_average()
-	Analysis.save_peak_data(filename='peaks_ap')
+	#Analysis.grand_average()
+	#Analysis.save_peak_data(filename='peaks_ap')
+	Analysis.save_peak_data(filename='peaks_prac2018')
+

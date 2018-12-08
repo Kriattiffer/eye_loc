@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*- 
+﻿# -*- coding: utf-8 -*- 
 
 import numpy as np
 import itertools
@@ -25,7 +25,7 @@ config = {
 	'window_size':(1680, 1050),
 	'number_of_inputs':12,
 	'aims_learn': [0,5,36,41,21],#[29,35],#,9,13,17,21,25,30,34,38],
-	'aims_play': [names.index(a) for a in aim_word]#[0:2]
+	'aims_play': [names.index(a) for a in aim_word]#[0:5]
 			}
 # print config['aims_play']
 # print rows + columns

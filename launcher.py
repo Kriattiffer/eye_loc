@@ -82,7 +82,7 @@ if __name__ == '__main__':
 	parser.add_argument('--noeyetrack', action='store_true', dest='fake_et')
 
 	parser.add_argument('--config', action='store', dest='config', type=str, 
-						default = './configs/letters.bcicfg.py')
+							default = './configs/letters.bcicfg.py')
 						# default = './configs/hexospell.bcicfg')
 
 	args = vars(parser.parse_args())
